@@ -9,4 +9,10 @@ Steps to Set Up Flask on your local computer:
     venv\Scripts\activate     # Windows
 3. Install Flask and Firebase API: pip install flask firebase-admin
 (note in order to do this, might need to install some dependencies like rust or command line tools)
+4. Install required Python dependencies
+pip install Flask Flask-CORS Flask-RESTful firebase-admin pyjwt bcrypt
+or
+pip install -r requirements.txt
+5. Ask Chandini to send the firebase_config.json file 
+
 

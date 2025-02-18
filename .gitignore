@@ -10,6 +10,7 @@ instance/
 
 # Firebase Admin SDK Key
 firebase-key.json
+firebase_config.json
 
 # Log and database files
 *.log
