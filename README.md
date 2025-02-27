@@ -15,4 +15,6 @@ or
 pip install -r requirements.txt
 5. Ask Chandini to send the firebase_config.json file 
 
-
+To run the main branch: 
+cd backend folder 
+python app.py
