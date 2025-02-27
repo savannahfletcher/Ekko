@@ -1,4 +1,4 @@
-#!/Users/chandu/Documents/GitHub/Ekko/backend/venv/bin/python3
+#!/Users/jerisgracegonzales/Documents/GitHub/Ekko/backend/venv/bin/python3.13
 # -*- coding: utf-8 -*-
 # Copyright 2024 Google LLC
 #
