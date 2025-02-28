@@ -13,12 +13,17 @@ const RootLayout = () => {
           fontWeight: 'bold',
         },
         contentStyle: {
-          paddingHorizontal: 10,
-          paddingTop: 10,
+          // paddingHorizontal: 10,
+          // paddingTop: 10,
           backgroundColor: '#fff',
         },
       }}>
-        <Stack.Screen name = 'index' options = {{title: 'Ekko'}} />
+        <Stack.Screen name = 'index' options = {{title: 'Ekko Home'}} />
+        <Stack.Screen name = 'register' options = {{headerTitle: 'Register'}} />
+        <Stack.Screen name = 'login' options = {{headerTitle: 'Login'}} />
+        <Stack.Screen name = 'feed' options = {{headerTitle: 'Feed'}} />
+
+
       </Stack>
   );
 };
