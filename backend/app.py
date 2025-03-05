@@ -1,34 +1,36 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from firebase_admin import auth, credentials, initialize_app
-import bcrypt
+import firebase_admin
+from firebase_admin import auth, credentials
 import jwt
 import datetime
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS
+CORS(app)  # Enable CORS for frontend access
 
-# Load Firebase credentials
+# Load Firebase credentials (Ensure this file is in the backend directory)
 cred = credentials.Certificate("firebase_config.json")
-initialize_app(cred)
+firebase_admin.initialize_app(cred)
 
 # Secret key for JWT
-SECRET_KEY = "your_secret_key"
+#SECRET_KEY = "your_secret_key"
 
 @app.route("/")
 def home():
     return "Flask Backend is Running!"
 
-# This API will create a new user in Firebase and store credentials securely.
+# ✅ Register a new user in Firebase
 @app.route("/register", methods=["POST"])
 def register():
     try:
         data = request.json
+        print("Received data:", data)
         email = data["email"]
         password = data["password"]
+
+        if not email or not password:
+            return jsonify({"error": "Missing email or password"}), 400
         
-        # Hash password
-        hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
 
         # Create user in Firebase
         user = auth.create_user(email=email, password=password)
@@ -36,9 +38,14 @@ def register():
         return jsonify({"message": "User created successfully", "uid": user.uid}), 201
 
     except Exception as e:
+        print("Error:", str(e))  # ✅ Debugging
         return jsonify({"error": str(e)}), 400
+    
 
-# Generates a JWT token upon successful login
+
+
+
+# ✅ Login a user (use Firebase Authentication)
 @app.route("/login", methods=["POST"])
 def login():
     try:
@@ -46,30 +53,37 @@ def login():
         email = data["email"]
         password = data["password"]
 
-        # Verify user
-        user = auth.get_user_by_email(email)
+        # Firebase does NOT allow password verification via the Admin SDK.
+        # Instead, verify credentials using Firebase Authentication REST API.
+        import requests
 
-        # Generate JWT token
-        token = jwt.encode(
-            {"uid": user.uid, "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)},
-            SECRET_KEY,
-            algorithm="HS256",
-        )
+        firebase_api_key = "AIzaSyBTLLSOmw9bHzTQg23RS7_dybCMd1jOSnU"  # Get from Firebase Console
+        url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={firebase_api_key}"
+        payload = {"email": email, "password": password, "returnSecureToken": True}
+        response = requests.post(url, json=payload)
 
-        return jsonify({"token": token, "uid": user.uid}), 200
+        if response.status_code == 200:
+            user_data = response.json()
+            token = user_data["idToken"]  # Firebase returns an ID token
+
+            return jsonify({"token": token, "uid": user_data["localId"]}), 200
+        else:
+            return jsonify({"error": "Invalid credentials"}), 401
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-# Create a function to verify JWT tokens in protected routes.
+
+# ✅ Verify Firebase JWT tokens in protected routes
 def verify_token(token):
     try:
-        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        decoded_token = auth.verify_id_token(token)
         return decoded_token["uid"]
-    except:
+    except Exception:
         return None
 
-#To test authentication, create a protected API endpoint.
+
+# ✅ Protected API route (requires Firebase Authentication)
 @app.route("/protected", methods=["GET"])
 def protected():
     token = request.headers.get("Authorization")
@@ -82,6 +96,7 @@ def protected():
         return jsonify({"error": "Invalid token"}), 403
 
     return jsonify({"message": "Welcome to the protected route!", "uid": uid}), 200
+
 
 
 if __name__ == "__main__":
