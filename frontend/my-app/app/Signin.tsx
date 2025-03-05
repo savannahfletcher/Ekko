@@ -19,9 +19,9 @@ export default function SignInScreen() {
           return '⚠️ Username not found. Please sign up.';
         case 'auth/invalid-email':
           return '⚠️ Invalid email format. Please enter a valid email.';
-        //case 'auth/wrong-password':
+        case 'auth/wrong-password':
         case 'auth/invalid-credential':  
-          return '⚠️ Incorrect password. Please try again.';
+          return '⚠️ Incorrect password. Or user not found. Please try again.';
         case 'auth/email-already-in-use':
           return '⚠️ This username already exists. Try logging in.';
         case 'auth/weak-password':
