@@ -21,21 +21,21 @@ const HomeScreen = () => {
       
       <TouchableOpacity
         style={styles.button}
-        onPress={() => router.push('/feed')}
+        onPress={() => router.push('./feed')}
       >
         <Text style={styles.buttonText}>Feed (Debug)</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => router.push('/login')}
+        onPress={() => router.push('./login')}
       >
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => router.push('/register')}
+        onPress={() => router.push('./register')}
       >
         <Text style={styles.buttonText}>Register</Text>
       </TouchableOpacity>
