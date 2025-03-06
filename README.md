@@ -15,6 +15,12 @@ or
 pip install -r requirements.txt
 5. Ask Chandini to send the firebase_config.json file 
 
-To run the main branch: 
-cd backend folder 
-python app.py
+Steps to run React Native app: 
+1. cd to frontend folder
+2. Run: npx expo start
+    *Mac users might need to install xcode for this if it prompts you
+3. Download Expo Go on your mobile device
+4. To view the app:
+    On your mobile device -> scan the given QR code with Expo Go (Android) or the Camera app (iOS)
+    As an emulator on your computer -> download XCode and open it there
+        *I'm not sure what this would look like for non-Mac users

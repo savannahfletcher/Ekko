@@ -1,4 +1,4 @@
-#!/Users/chandu/Documents/GitHub/Ekko/backend/venv/bin/python3
+#!/Users/anniekakaveti/Documents/GitHub/Ekko/backend/venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys
