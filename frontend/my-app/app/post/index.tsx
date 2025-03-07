@@ -1,10 +1,12 @@
-import { View, Text, StyleSheet, Pressable, TextInput, Image } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Image, FlatList } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store"; // Optional for storing tokens
 
-const CLIENT_ID = "b695f8d430644e7d86c7ce5f5073c41c";
-const CLIENT_SECRET = "1e97d7ea330e4e9998c8a0dff1e4922b"; // need to hide somewhere
+const tokens = require("../../tokens.json");
+const SPOTIFY_CLIENT_ID = tokens.SPOTIFY_CLIENT_ID;
+const SPOTIFY_CLIENT_SECRET = tokens.SPOTIFY_CLIENT_SECRET;
+
 const TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 
 const PostScreen = () => {
@@ -12,15 +14,15 @@ const PostScreen = () => {
     const [accessToken, setAccessToken] = useState("");
     const [input, setInput] = useState(""); // user input
     const [songs, setSongs] = useState<any[]>([]); // set of queried songs
-    const [isFocused, setIsFocused] = useState(false); // whether we're typing or not
+    const [hasTyped, setHasTyped] = useState(false); // track if user has started typing
 
     // fetch a new access token (valid for 1 hour)
     async function fetchAccessToken() {
     try {
       const authParams = new URLSearchParams();
       authParams.append("grant_type", "client_credentials");
-      authParams.append("client_id", CLIENT_ID);
-      authParams.append("client_secret", CLIENT_SECRET);
+      authParams.append("client_id", SPOTIFY_CLIENT_ID);
+      authParams.append("client_secret", SPOTIFY_CLIENT_SECRET);
 
       const response = await fetch(TOKEN_ENDPOINT, {
         method: "POST",
@@ -40,14 +42,14 @@ const PostScreen = () => {
     }
   }
 
-  // fetch Spotify songs based on user input
+    // fetch Spotify songs based on user input
   async function getSongs() {
     if (!accessToken) {
       console.warn("No access token available. Fetching a new one...");
       await fetchAccessToken();
     }
 
-    // if input is too small, don't query anything yet
+    // if input isn't long enough, don't query anything yet
     if (input?.length < 2) {
         return;
     }
@@ -56,7 +58,7 @@ const PostScreen = () => {
       const response = await fetch(
         `https://api.spotify.com/v1/search?q=${encodeURIComponent(
           input
-        )}&type=track&limit=5`,
+        )}&type=track&limit=20`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -66,6 +68,7 @@ const PostScreen = () => {
 
       const data = await response.json();
       setSongs(data.tracks.items);
+    //   console.log(songs);
     } catch (error) {
       console.error("Error fetching songs:", error);
     }
@@ -83,19 +86,23 @@ const PostScreen = () => {
         <Icon style={styles.searchIcon} name="search" size={30} color="#000" />
         <TextInput
           value={input}
-          onChangeText={(text) => setInput(text)}
+          onChangeText={(text) => {
+            setInput(text)
+            setHasTyped(true)
+            getSongs()
+            text?.length == 0 && (setSongs([]))
+          }}
           placeholder="Search songs on Spotify"
           placeholderTextColor={"#888888"}
-          onChange={getSongs}
           onSubmitEditing={getSongs}
-          onFocus={() => setIsFocused(true)} // Hide prompt when user focuses
-          onBlur={() => setIsFocused(false)}  // Show prompt again when user exits input
-        
+          style={styles.inputText}
+          onBlur={() => input?.length == 0 && setHasTyped(false)}
+
         />
       </Pressable>
 
       {/* the tagline shows by default */}
-      {!isFocused && (
+      {!hasTyped && (
         <>
           <Text style={styles.tagline}>Post a song of the day for your friends to see!</Text>
           <Text style={styles.tagline_sub}>
@@ -106,27 +113,37 @@ const PostScreen = () => {
 
     {/* when the user starts typing, show them their songs */}
     {/* if the user clicks the bar but doesn't type, prompt them to keep typing */}
-    {isFocused && (
-    <View >
+    {hasTyped && (
+    <View style={styles.resultsContainer}>
         {songs?.length > 0 ? (
-        songs.map((song, index) => (
-            <View key={index} style={styles.resultsContainer}>
-                {song.album.images.length > 0 ? (
+            
+            <FlatList 
+                data={songs}
+                keyExtractor={(song) => song.id} // Ensure each item has a unique key
+                contentContainerStyle={{ paddingBottom: 20 }} // Prevents cut-off at bottom
+                keyboardShouldPersistTaps="handled" // Allows scrolling without dismissing keyboard
+                renderItem={({ item }) => (
+        
+            <View style={styles.rowContainer}>
+                {item.album.images.length > 0 ? (
                     <Image 
-                        source={{ uri: song.album.images[0].url }} 
+                        source={{ uri: item.album.images[0].url }} 
                         style={{ width: 70, height: 70, borderRadius: 8 }} 
                         resizeMode="cover"
                     />
                 ) : (
-                    <Text style={{ color: "#aaa" }}>No Image Available</Text>
+                    <View style={{ width: 70, height: 70, borderRadius: 8, backgroundColor: "#aaa"}} 
+                    
+                    />
+                    // <Text style={{ color: "#aaa" }}>No Image Available</Text>
                 )}
                 <View style={styles.songInfo}>
-                  <Text style={styles.songTitle}>{song.name}</Text>
-                  <Text style={styles.songDetails}>Song • {song.artists[0].name}</Text>
+                  <Text style={styles.songTitle}>{item.name}</Text>
+                  <Text style={styles.songDetails}>Song • {item.artists[0].name}</Text>
                 </View>
                 
             </View>
-        ))
+        )} />
         
         ) : (
             <Text style={styles.keep_typing}>Keep typing...</Text>
@@ -156,11 +173,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#fff",
     borderRadius: 14,
-    padding: 10,
   },
   searchIcon: {
     paddingLeft: 10,
     paddingRight: 15,
+    color: "#888888",
+  },
+  inputText: {
+    paddingTop: 15,
+    paddingBottom: 15,
+    flex: 1,
+    color: "white",
   },
   tagline: {
     fontSize: 28,
@@ -186,6 +209,10 @@ const styles = StyleSheet.create({
     color: "#B3B3B3",
   },
   resultsContainer: {
+    // marginBottom: 50,
+    flex: 1,
+  },
+  rowContainer: {
     marginTop: 20,
     flexDirection: "row",
   },
