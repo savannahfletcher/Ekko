@@ -18,13 +18,6 @@ const HomeScreen = () => {
       <Image source= { TempLogo } style={styles.image}/>
       <Text style={styles.title}>Welcome to Ekko!</Text>
       <Text style={styles.subtitle}>Your favorite music sharing app!</Text>
-      
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => router.push('./feed')}
-      >
-        <Text style={styles.buttonText}>Feed (Debug)</Text>
-      </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.button}
@@ -39,6 +32,21 @@ const HomeScreen = () => {
       >
         <Text style={styles.buttonText}>Register</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.push('./feed')}
+      >
+        <Text style={styles.buttonText}>Feed (Debug)</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.push('./post')}
+      >
+        <Text style={styles.buttonText}>Search (Debug)</Text>
+      </TouchableOpacity>
+
     </View>
   );
 }

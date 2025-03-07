@@ -22,6 +22,7 @@ const RootLayout = () => {
         <Stack.Screen name = 'register' options = {{headerTitle: 'Register'}} />
         <Stack.Screen name = 'login' options = {{headerTitle: 'Login'}} />
         <Stack.Screen name = 'feed' options = {{headerTitle: 'Feed'}} />
+        <Stack.Screen name = 'post' options = {{headerTitle: 'Search'}} />
 
 
       </Stack>

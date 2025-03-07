@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 
-const LoginLayout = () => {
+const PostLayout = () => {
     return <Stack
         screenOptions={{
             headerShown: false,
@@ -9,4 +9,4 @@ const LoginLayout = () => {
 
 }
 
-export default LoginLayout;
+export default PostLayout;
