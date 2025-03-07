@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, TextInput, Image, FlatList } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Image, FlatList, ScrollView } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store"; // Optional for storing tokens
@@ -14,6 +14,11 @@ const PostScreen = () => {
     const [accessToken, setAccessToken] = useState("");
     const [input, setInput] = useState(""); // user input
     const [songs, setSongs] = useState<any[]>([]); // set of queried songs
+    const playlistsJson = [
+        { id: "1", title: "Trending Songs", playlistId: "774kUuKDzLa8ieaSmi8IfS" },
+        { id: "2", title: "Pop Hits 2000-2025", playlistId: "6mtYuOxzl58vSGnEDtZ9uB" },
+      ];
+    const [playlists, setPlaylists] = useState<any[]>([]); // set of queried songs
     const [hasTyped, setHasTyped] = useState(false); // track if user has started typing
 
     // fetch a new access token (valid for 1 hour)
@@ -74,84 +79,160 @@ const PostScreen = () => {
     }
   }
 
+  async function fetchPlaylistTracks(playlistId: string) {
+    if (!accessToken) {
+      console.warn("No access token available. Fetching a new one...");
+      await fetchAccessToken();
+    }
+  
+    try {
+      const response = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=10`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+  
+      const data = await response.json();
+      return data?.items || [];
+    } catch (error) {
+      console.error("Error fetching playlist tracks:", error);
+      return [];
+    }
+  
+  }
+
   useEffect(() => {
-    fetchAccessToken();
+    const fetchData = async () => {
+        await fetchAccessToken();
+    }
+    fetchData();
   }, []);
 
+// Fetch songs for all playlists when access token updates
+  useEffect(() => {
+    const fetchPlaylists = async () => {
+      const fetchedPlaylists = await Promise.all(
+        playlistsJson.map(async (p) => ({
+          ...p,
+          tracks: await fetchPlaylistTracks(p.playlistId),
+        }))
+      );
+      setPlaylists(fetchedPlaylists);
+    };
+    
+    if (accessToken) fetchPlaylists();
+  }, [accessToken]);
+
+  useEffect(() => {
+    console.log(playlists)
+  }, [playlists]);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Search Songs</Text>
-
-      <Pressable style={styles.searchBar}>
-        <Icon style={styles.searchIcon} name="search" size={30} color="#000" />
-        <TextInput
-          value={input}
-          onChangeText={(text) => {
-            setInput(text)
-            setHasTyped(true)
-            getSongs()
-            text?.length == 0 && (setSongs([]))
-          }}
-          placeholder="Search songs on Spotify"
-          placeholderTextColor={"#888888"}
-          onSubmitEditing={getSongs}
-          style={styles.inputText}
-          onBlur={() => input?.length == 0 && setHasTyped(false)}
-
-        />
-      </Pressable>
-
-      {/* the tagline shows by default */}
-      {!hasTyped && (
+    <FlatList style={styles.container}
+    ListHeaderComponent={
         <>
-          <Text style={styles.tagline}>Post a song of the day for your friends to see!</Text>
-          <Text style={styles.tagline_sub}>
-            It could be what you’re listening to right now or a song that captures your vibe for the day!
-          </Text>
-        </>
-      )}
+            <Text style={styles.title}>Search Songs</Text>
 
-    {/* when the user starts typing, show them their songs */}
-    {/* if the user clicks the bar but doesn't type, prompt them to keep typing */}
-    {hasTyped && (
-    <View style={styles.resultsContainer}>
-        {songs?.length > 0 ? (
-            
-            <FlatList 
-                data={songs}
-                keyExtractor={(song) => song.id} // Ensure each item has a unique key
-                contentContainerStyle={{ paddingBottom: 20 }} // Prevents cut-off at bottom
-                keyboardShouldPersistTaps="handled" // Allows scrolling without dismissing keyboard
-                renderItem={({ item }) => (
-        
-            <View style={styles.rowContainer}>
-                {item.album.images.length > 0 ? (
-                    <Image 
-                        source={{ uri: item.album.images[0].url }} 
-                        style={{ width: 70, height: 70, borderRadius: 8 }} 
-                        resizeMode="cover"
-                    />
-                ) : (
-                    <View style={{ width: 70, height: 70, borderRadius: 8, backgroundColor: "#aaa"}} 
-                    
-                    />
-                    // <Text style={{ color: "#aaa" }}>No Image Available</Text>
-                )}
-                <View style={styles.songInfo}>
-                  <Text style={styles.songTitle}>{item.name}</Text>
-                  <Text style={styles.songDetails}>Song • {item.artists[0].name}</Text>
+            <Pressable style={styles.searchBar}>
+                <Icon style={styles.searchIcon} name="search" size={30} color="#000" />
+                <TextInput
+                value={input}
+                onChangeText={(text) => {
+                    setInput(text)
+                    setHasTyped(true)
+                    getSongs()
+                    text?.length == 0 && (setSongs([]))
+                }}
+                placeholder="Search songs on Spotify"
+                placeholderTextColor={"#888888"}
+                onSubmitEditing={getSongs}
+                style={styles.inputText}
+                onBlur={() => input?.length == 0 && setHasTyped(false)}
+
+                />
+            </Pressable>
+
+            {/* the tagline shows by default */}
+            {!hasTyped && (
+                <View>
+                <Text style={styles.tagline}>Post a song of the day for your friends to see!</Text>
+                <Text style={styles.tagline_sub}>
+                    It could be what you’re listening to right now or a song that captures your vibe for the day!
+                </Text>
                 </View>
-                
-            </View>
-        )} />
-        
-        ) : (
-            <Text style={styles.keep_typing}>Keep typing...</Text>
+            )}
+            <View style = {{ marginTop: 130, }}/>
+        </>
+    }
+    data={playlists}
+    keyExtractor={(playlists) => playlists.id}
+    renderItem={({ item }) => (
+        // recommended playlists
+        !hasTyped ? (
+        <View>
+            <Text style={styles.trendingTitle}>{item.title}</Text>
+            <FlatList
+                data={item.tracks}
+                keyExtractor={(track) => track.track.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item: track }) => (
+                <View style={styles.trendingSongContainer}>
+                    {track.track.album.images.length > 0 && (
+                    <View>
+                        <Image
+                        source={{ uri: track.track.album.images[0].url }}
+                        style={{ width: 140, height: 140 }}
+                        resizeMode="cover"
+                        />
+                        <Text style={styles.trendingSongTitle}>{track.track.name}</Text>
+                    </View>
+                    )}
+                </View>
+                )}
+            />
+        </View>
+        ) : null
         )}
-    </View>
-    )}
-
-    </View>
+    ListFooterComponent={
+        // Search functionality
+        hasTyped ? (
+        <View style={styles.resultsContainer}>
+            {songs?.length > 0 ? (
+                
+                <FlatList 
+                    data={songs}
+                    keyExtractor={(song) => song.id} // Ensure each item has a unique key
+                    contentContainerStyle={{ paddingBottom: 20 }} // Prevents cut-off at bottom
+                    keyboardShouldPersistTaps="handled" // Allows scrolling without dismissing keyboard
+                    renderItem={({ item }) => (
+            
+                    <View style={styles.rowContainer}>
+                        {item.album.images.length > 0 ? (
+                            <Image 
+                                source={{ uri: item.album.images[0].url }} 
+                                style={{ width: 70, height: 70, borderRadius: 8 }} 
+                                resizeMode="cover"
+                            />
+                        ) : (
+                            <View style={{ width: 70, height: 70, borderRadius: 8, backgroundColor: "#aaa"}} />
+                            // <Text style={{ color: "#aaa" }}>No Image Available</Text>
+                        )}
+                        <View style={styles.songInfo}>
+                            <Text style={styles.songTitle}>{item.name}</Text>
+                            <Text style={styles.songDetails}>Song • {item.artists[0].name}</Text>
+                        </View>
+                    </View>
+                )} />
+            
+            ) : (
+                <Text style={styles.keep_typing}>Keep typing...</Text>
+            )}
+        </View>
+        ) : null
+    }
+    />
   );
 };
 
@@ -199,6 +280,28 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 10,
     color: "#B3B3B3",
+  },
+  trendingTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "white",
+  },
+  trendingContainer: {
+    marginTop: 5,
+    flexDirection: "row",
+  },
+  trendingSongContainer: {
+    marginTop: 20,
+    marginRight: 10,
+  },
+  trendingSongTitle: {
+    fontSize: 13,
+    fontWeight: "300",
+    color: "#fff",
+    textAlign: "center",
+    marginTop: 5,
+    maxWidth: 140,
+    
   },
   keep_typing: {
     fontSize: 16,
