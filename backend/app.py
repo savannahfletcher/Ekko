@@ -101,3 +101,33 @@ def protected():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
+
+@app.route("/feed", methods=["GET"])
+def get_feed():
+    sample_posts = [
+        {
+            "id": "1",
+            "username": "Carl Smith",
+            "songName": "Espresso",
+            "albumCover": "https://your_storage_link/Espresso.jpg",
+            "artist": "Sabrina Carpenter",
+            "profile": "https://your_storage_link/profilePic1.jpg"
+        },
+        {
+            "id": "2",
+            "username": "Gloria Shell",
+            "songName": "Juna",
+            "albumCover": "https://your_storage_link/Juna.jpeg",
+            "artist": "Clairo",
+            "profile": "https://your_storage_link/profilePic2.jpg"
+        },
+        {
+            "id": "3",
+            "username": "Aria Coolidge",
+            "songName": "LALALALA",
+            "albumCover": "https://your_storage_link/LALALALA.jpeg",
+            "artist": "Stray Kids",
+            "profile": "https://your_storage_link/profilePic3.jpg"
+        }
+    ]
+    return jsonify(sample_posts), 200
