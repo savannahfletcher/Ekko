@@ -4,6 +4,8 @@ import firebase_admin
 from firebase_admin import auth, credentials
 import jwt
 import datetime
+from firebase_admin import firestore
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend access
@@ -11,6 +13,8 @@ CORS(app)  # Enable CORS for frontend access
 # Load Firebase credentials (Ensure this file is in the backend directory)
 cred = credentials.Certificate("firebase_config.json")
 firebase_admin.initialize_app(cred)
+
+db = firestore.client()  # Initialize Firestore
 
 # Secret key for JWT
 #SECRET_KEY = "your_secret_key"
@@ -27,13 +31,22 @@ def register():
         print("Received data:", data)
         email = data["email"]
         password = data["password"]
+        username = data.get("username")
+        profile_pic = data.get("profilePic")  # URL of uploaded profile pic
 
-        if not email or not password:
-            return jsonify({"error": "Missing email or password"}), 400
+        if not email or not password or not username:
+            return jsonify({"error": "Missing required fields"}), 400
         
 
         # Create user in Firebase
         user = auth.create_user(email=email, password=password)
+         # Save user info in Firestore
+        user_data = {
+            "username": username,
+            "email": email,
+            "profilePic": profile_pic or "",  # Store empty string if no profile pic
+        }
+        db.collection("users").document(user.uid).set(user_data)
 
         return jsonify({"message": "User created successfully", "uid": user.uid}), 201
 
@@ -41,8 +54,6 @@ def register():
         print("Error:", str(e))  # ✅ Debugging
         return jsonify({"error": str(e)}), 400
     
-
-
 
 
 # ✅ Login a user (use Firebase Authentication)
