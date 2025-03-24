@@ -60,4 +60,7 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# spotify API
+tokens.json
+
 app-example

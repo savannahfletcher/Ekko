@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
 import { auth,storage, db  } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -11,7 +12,7 @@ import { Image } from 'react-native';
 
 
 
-export default function SignInScreen() {
+const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -161,41 +162,98 @@ export default function SignInScreen() {
   };
 
   return (
-    <View style={{ padding: 20 }}>
-      <Text>Username:</Text>
+    <View style = {styles.container}>
+      <Text style = {styles.topText}>
+        Welcome to Ekko! Let's create your account!
+        </Text>
+        <LinearGradient
+          colors={['#3A0398', '#150F29']} // Example gradient colors
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 0.7 }}
+          style={styles.loginBox}
+          >
+       <Text style={styles.promptText}>Username:</Text>
       <TextInput
-        style={{ borderWidth: 1, padding: 10, marginVertical: 5 }}
+        style={styles.inputBox}
         placeholder="Enter username"
         value={username}
         onChangeText={setUsername}
       />
-
-      <Text>Email:</Text>
+          
+      <Text style={styles.promptText}>Email:</Text>
       <TextInput
-        style={{ borderWidth: 1, padding: 10, marginVertical: 5 }}
+        style={styles.inputBox}
         placeholder="Enter email"
         value={email}
         onChangeText={setEmail}
       />
-      <Text>Password:</Text>
+
+      <Text style={styles.promptText}>Password:</Text>
       <TextInput
-        style={{ borderWidth: 1, padding: 10, marginVertical: 5 }}
+        style={styles.inputBox}
         placeholder="Enter password"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
-      
-      <Button title="Pick Profile Picture" onPress={pickImage} />
+          
+      <View style={{ padding: 10}}></View>
+
+      <Button title="Optional: Select Profile Picture" onPress={pickImage} color='#4221D6'/>
       
       {/* the variable, profilePic holds the user selected image  */}
       {profilePic && <Image source={{ uri: profilePic }} style={{ width: 100, height: 100, marginTop: 10 }} />}
-
-      <Button title="LOGIN" onPress={handleLogin} />
-      <Button title="SIGNUP" onPress={handleSignup} />
+      <View style={{ padding: 20}}></View>
+      <Button title="SIGNUP" onPress={handleSignup} color='#4221D6'/>
 
       {message ? <Text style={{ color: 'green', marginTop: 10 }}>{message}</Text> : null}
       {error ? <Text style={{ color: 'red', marginTop: 10 }}>{error}</Text> : null}
+
+      <Text style = {styles.forgotText}>Already have an account?</Text>
+      <Button title="LOGIN" onPress={handleLogin} color='#4221D6'/>
+
+      </LinearGradient>
     </View>
   );
 }
+
+const styles = StyleSheet.create ({
+  container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: '#2f2f2f',
+    },
+  loginBox: {
+      padding: 20,
+      marginBottom: 50,
+      borderRadius: 19,
+  },
+  topText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    padding: 20,
+  },
+  promptText: {
+      fontSize: 17,
+      color: '#fff',
+      paddingLeft: 2,
+      paddingTop: 10,
+  },
+  inputBox: {
+    borderWidth: 1, 
+    padding: 10, 
+    marginVertical: 5 ,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+  },
+  forgotText: {
+      fontSize: 16,
+      color: '#A7A7A7',
+      paddingTop: 30,
+      paddingLeft: 5,
+      paddingBottom: 5,
+  },
+})
+
+export default Register;
