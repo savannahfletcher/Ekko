@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable, TextInput, Image, FlatList, ScrollVi
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store"; // Optional for storing tokens
+import SelectPopup from "./Select";
 
 const tokens = require("../../tokens.json");
 const SPOTIFY_CLIENT_ID = tokens.SPOTIFY_CLIENT_ID;
@@ -11,18 +12,21 @@ const TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 
 const PostScreen = () => {
     
-    const [accessToken, setAccessToken] = useState("");
-    const [input, setInput] = useState(""); // user input
-    const [songs, setSongs] = useState<any[]>([]); // set of queried songs
-    const playlistsJson = [
-        { id: "1", title: "Trending Songs", playlistId: "774kUuKDzLa8ieaSmi8IfS" },
-        { id: "2", title: "Pop Hits 2000-2025", playlistId: "6mtYuOxzl58vSGnEDtZ9uB" },
-      ];
-    const [playlists, setPlaylists] = useState<any[]>([]); // set of queried songs
-    const [hasTyped, setHasTyped] = useState(false); // track if user has started typing
+  const [accessToken, setAccessToken] = useState("");
+  const [input, setInput] = useState(""); // user input
+  const [songs, setSongs] = useState<any[]>([]); // set of queried songs
+  const playlistsJson = [
+    { id: "1", title: "Trending Songs", playlistId: "774kUuKDzLa8ieaSmi8IfS" },
+    { id: "2", title: "Pop Hits 2000-2025", playlistId: "6mtYuOxzl58vSGnEDtZ9uB" },
+  ];
+  const [playlists, setPlaylists] = useState<any[]>([]); // set of queried songs
+  const [hasTyped, setHasTyped] = useState(false); // track if user has started typing
 
-    // fetch a new access token (valid for 1 hour)
-    async function fetchAccessToken() {
+  const [selectedSong, setSelectedSong] = useState(null); // the song to be sent to backend
+  const [isModalVisible, setModalVisible] = useState(false);
+
+  // fetch a new access token (valid for 1 hour)
+  async function fetchAccessToken() {
     try {
       const authParams = new URLSearchParams();
       authParams.append("grant_type", "client_credentials");
@@ -109,7 +113,7 @@ const PostScreen = () => {
     fetchData();
   }, []);
 
-// Fetch songs for all playlists when access token updates
+  // Fetch songs for all playlists when access token updates
   useEffect(() => {
     const fetchPlaylists = async () => {
       const fetchedPlaylists = await Promise.all(
@@ -124,11 +128,32 @@ const PostScreen = () => {
     if (accessToken) fetchPlaylists();
   }, [accessToken]);
 
+  // useEffect(() => {
+  //   console.log(playlists)
+  // }, [playlists]);
+
+  // call getSongs whenever the input changes
   useEffect(() => {
-    console.log(playlists)
-  }, [playlists]);
+    if (input.length > 1) {
+      getSongs();
+    } else {
+      setSongs([]); // Clear results when input is too short
+    }
+  }, [input]);
+
+  const handleSongPress = (song: any) => {
+    setSelectedSong(song);
+    setModalVisible(true);
+  };
+
+  const handlePost = (song: any, caption: any) => {
+    console.log("Posted:", { song, caption }); // Replace with actual posting logic
+    // important stuff is
+    setModalVisible(false);
+  };
 
   return (
+    <>
     <FlatList style={styles.container}
     ListHeaderComponent={
         <>
@@ -141,8 +166,6 @@ const PostScreen = () => {
                 onChangeText={(text) => {
                     setInput(text)
                     setHasTyped(true)
-                    getSongs()
-                    text?.length == 0 && (setSongs([]))
                 }}
                 placeholder="Search songs on Spotify"
                 placeholderTextColor={"#888888"}
@@ -162,7 +185,7 @@ const PostScreen = () => {
                 </Text>
                 </View>
             )}
-            <View style = {{ marginTop: 130, }}/>
+            {/* <View style = {{ marginTop: 130, }}/> */}
         </>
     }
     data={playlists}
@@ -171,7 +194,7 @@ const PostScreen = () => {
         // recommended playlists
         !hasTyped ? (
         <View>
-            <Text style={styles.trendingTitle}>{item.title}</Text>
+            <Text style={styles.trendingTitle}>{item.title ?? ""}</Text>
             <FlatList
                 data={item.tracks}
                 keyExtractor={(track) => track.track.id}
@@ -180,14 +203,16 @@ const PostScreen = () => {
                 renderItem={({ item: track }) => (
                 <View style={styles.trendingSongContainer}>
                     {track.track.album.images.length > 0 && (
-                    <View>
-                        <Image
-                        source={{ uri: track.track.album.images[0].url }}
-                        style={{ width: 140, height: 140 }}
-                        resizeMode="cover"
-                        />
-                        <Text style={styles.trendingSongTitle}>{track.track.name}</Text>
-                    </View>
+                    <Pressable onPress={() => handleSongPress(track.track)}>
+                      <View>
+                          <Image
+                          source={{ uri: track.track.album.images[0].url }}
+                          style={{ width: 140, height: 140 }}
+                          resizeMode="cover"
+                          />
+                          <Text style={styles.trendingSongTitle}>{track.track.name ?? "Unknown Title"}</Text>
+                      </View>
+                    </Pressable>
                     )}
                 </View>
                 )}
@@ -196,18 +221,18 @@ const PostScreen = () => {
         ) : null
         )}
     ListFooterComponent={
-        // Search functionality
-        hasTyped ? (
-        <View style={styles.resultsContainer}>
-            {songs?.length > 0 ? (
-                
-                <FlatList 
-                    data={songs}
-                    keyExtractor={(song) => song.id} // Ensure each item has a unique key
-                    contentContainerStyle={{ paddingBottom: 20 }} // Prevents cut-off at bottom
-                    keyboardShouldPersistTaps="handled" // Allows scrolling without dismissing keyboard
-                    renderItem={({ item }) => (
-            
+      // Search functionality
+      hasTyped ? (
+      <View style={styles.resultsContainer}>
+          {songs?.length > 0 ? (
+            <>
+              <FlatList 
+                  data={songs}
+                  keyExtractor={(song) => song.id} // Ensure each item has a unique key
+                  contentContainerStyle={{ paddingBottom: 20 }} // Prevents cut-off at bottom
+                  keyboardShouldPersistTaps="handled" // Allows scrolling without dismissing keyboard
+                  renderItem={({ item }) => (
+                  <Pressable onPress={() => handleSongPress(item)}>
                     <View style={styles.rowContainer}>
                         {item.album.images.length > 0 ? (
                             <Image 
@@ -221,18 +246,30 @@ const PostScreen = () => {
                         )}
                         <View style={styles.songInfo}>
                             <Text style={styles.songTitle}>{item.name}</Text>
-                            <Text style={styles.songDetails}>Song • {item.artists[0].name}</Text>
+                            <Text style={styles.songDetails}>Song • {item.artists[0].name ?? "Unknown Artist"}</Text>
                         </View>
-                    </View>
-                )} />
-            
-            ) : (
-                <Text style={styles.keep_typing}>Keep typing...</Text>
-            )}
-        </View>
-        ) : null
+                    </View> 
+                  </Pressable>
+              )} />
+
+              
+            </>
+          
+          ) : (
+              <Text style={styles.keep_typing}>Keep typing...</Text>
+          )}
+      </View>
+      ) : null
     }
     />
+    <SelectPopup
+    isVisible={isModalVisible}
+    onClose={() => setModalVisible(false)}
+    selectedSong={selectedSong}
+    handlePost={handlePost}
+  />
+  </>
+  
   );
 };
 
