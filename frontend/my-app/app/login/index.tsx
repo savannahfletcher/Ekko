@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
 import { auth } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
-export default function SignInScreen() {
+const SignInScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -46,26 +47,81 @@ export default function SignInScreen() {
   };
 
   return (
-    <View style={{ padding: 20 }}>
-      <Text>Email:</Text>
-      <TextInput
-        style={{ borderWidth: 1, padding: 10, marginVertical: 5 }}
-        placeholder="Enter email"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <Text>Password:</Text>
-      <TextInput
-        style={{ borderWidth: 1, padding: 10, marginVertical: 5 }}
-        placeholder="Enter password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <Button title="LOGIN" onPress={handleLogin} />
+    <View style = {styles.container}>
+      <Text style = {styles.topText}>
+        Sign in to post your Ekko!
+        </Text>
+    <LinearGradient
+          colors={['#3A0398', '#150F29']} // Example gradient colors
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 0.7 }}
+          style={styles.loginBox}
+          >
+        <Text style = {styles.promptText}>Email:</Text>
+        <TextInput
+          style={styles.inputBox}
+          placeholder="Enter email"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <View style={{ padding: 5}}></View>
+        <Text style = {styles.promptText}>Password:</Text>
+        <TextInput
+          style={styles.inputBox}
+          placeholder="Enter password"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+        <View style={{ padding: 20}}></View>
+      
+        <Button title="LOGIN" onPress={handleLogin} color='#4221D6' />
 
-      {message ? <Text style={{ color: 'green', marginTop: 10 }}>{message}</Text> : null}
-      {error ? <Text style={{ color: 'red', marginTop: 10 }}>{error}</Text> : null}
+        <Text style = {styles.forgotText}>Forgot your password?</Text>
+
+        {message ? <Text style={{ color: 'green', marginTop: 10 , padding: 5}}>{message}</Text> : null}
+        {error ? <Text style={{ color: 'red', marginTop: 10 , padding: 5}}>{error}</Text> : null}
+      </LinearGradient>
     </View>
   );
 }
+
+const styles = StyleSheet.create ({
+  container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: '#2f2f2f',
+    },
+  loginBox: {
+      padding: 20,
+      marginBottom: 50,
+      borderRadius: 19,
+  },
+  topText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    padding: 20,
+  },
+  promptText: {
+      fontSize: 17,
+      color: '#fff',
+      paddingLeft: 2,
+      paddingTop: 10,
+  },
+  inputBox: {
+    borderWidth: 1, 
+    padding: 10, 
+    marginVertical: 5 ,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+  },
+  forgotText: {
+      fontSize: 12,
+      color: '#A7A7A7',
+      paddingTop: 20,
+      paddingLeft: 5,
+  },
+})
+
+export default SignInScreen;
