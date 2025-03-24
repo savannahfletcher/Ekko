@@ -12,7 +12,7 @@ import { Image } from 'react-native';
 
 
 
-const SignInScreen = () => {
+const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -199,7 +199,7 @@ const SignInScreen = () => {
           
       <View style={{ padding: 10}}></View>
 
-      <Button title="Pick Profile Picture" onPress={pickImage} color='#4221D6'/>
+      <Button title="Optional: Select Profile Picture" onPress={pickImage} color='#4221D6'/>
       
       {/* the variable, profilePic holds the user selected image  */}
       {profilePic && <Image source={{ uri: profilePic }} style={{ width: 100, height: 100, marginTop: 10 }} />}
@@ -252,7 +252,8 @@ const styles = StyleSheet.create ({
       color: '#A7A7A7',
       paddingTop: 30,
       paddingLeft: 5,
+      paddingBottom: 5,
   },
 })
 
-export default SignInScreen;
+export default Register;
