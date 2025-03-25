@@ -3,12 +3,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
 import { auth } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import {useRouter} from 'expo-router';
 
 const SignInScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const router = useRouter();
 
   // ✅ Function to map Firebase error codes to user-friendly messages
   const getErrorMessage = (error: any) => {
@@ -41,6 +44,7 @@ const SignInScreen = () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setMessage('✅ Login successful!'); // Show success message
+      router.replace('./feed')
     } catch (err: any) {
       setError(getErrorMessage(err)); // ✅ Ensure error is handled properly
     }

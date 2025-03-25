@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, doc, setDoc, getDoc } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
+import {useRouter} from 'expo-router';
 
 import { Image } from 'react-native';
 
@@ -19,6 +20,8 @@ const Register = () => {
   const [error, setError] = useState('');
   const [username, setUsername] = useState("");
   const [profilePic, setProfilePic] = useState<string | null>(null); // takes string or null
+
+    const router = useRouter();
 
   // ✅ Function to map Firebase error codes to user-friendly messages
   const getErrorMessage = (error: any) => {
@@ -135,6 +138,7 @@ const Register = () => {
       console.log("✅ DEBUG: User data saved to Firestore!");
   
       setMessage("✅ Account created successfully!");
+      router.replace('./feed');
     } catch (err: any) {
       console.error("❌ ERROR: Firestore Error:", err);
       setError(`⚠️ ${err.message}`);
