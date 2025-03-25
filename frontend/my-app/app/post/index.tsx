@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, TextInput, Image, FlatList, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Image, FlatList } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store"; // Optional for storing tokens

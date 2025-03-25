@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
+import { View, TextInput, Button, Text, StyleSheet, Image } from 'react-native';
 import { auth,storage, db  } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -8,10 +8,7 @@ import { collection, doc, setDoc, getDoc } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import {useRouter} from 'expo-router';
-
-import { Image } from 'react-native';
-
-
+import Icon from "react-native-vector-icons/FontAwesome";
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -204,6 +201,7 @@ const Register = () => {
       <View style={{ padding: 10}}></View>
 
       <Button title="Optional: Select Profile Picture" onPress={pickImage} color='#4221D6'/>
+      <Icon name="image" size={30} color="#000" />
       
       {/* the variable, profilePic holds the user selected image  */}
       {profilePic && <Image source={{ uri: profilePic }} style={{ width: 100, height: 100, marginTop: 10 }} />}

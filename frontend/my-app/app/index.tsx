@@ -1,10 +1,3 @@
-// import React from 'react';
-// import SignInScreen from './Signin';
-
-// export default function Index() {
-//   return <SignInScreen />;
-// }
-
 import { Text, View, StyleSheet, Image, TouchableOpacity } from "react-native";
 import TempLogo from '@/assets/images/Ekko_Temp_Logo.png'; // 1600 x 900
 import {useRouter} from 'expo-router';
