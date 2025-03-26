@@ -83,6 +83,7 @@ def login():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
 
 
 # ✅ Verify Firebase JWT tokens in protected routes
@@ -90,7 +91,8 @@ def verify_token(token):
     try:
         decoded_token = auth.verify_id_token(token)
         return decoded_token["uid"]
-    except Exception:
+    except Exception as e:
+        print("Token verification error:", str(e))  # Debugging
         return None
 
 
@@ -107,8 +109,6 @@ def protected():
         return jsonify({"error": "Invalid token"}), 403
 
     return jsonify({"message": "Welcome to the protected route!", "uid": uid}), 200
-
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
