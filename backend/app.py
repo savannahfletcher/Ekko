@@ -83,6 +83,7 @@ def login():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
 
 
 # ✅ Verify Firebase JWT tokens in protected routes
@@ -90,7 +91,8 @@ def verify_token(token):
     try:
         decoded_token = auth.verify_id_token(token)
         return decoded_token["uid"]
-    except Exception:
+    except Exception as e:
+        print("Token verification error:", str(e))  # Debugging
         return None
 
 
@@ -108,7 +110,51 @@ def protected():
 
     return jsonify({"message": "Welcome to the protected route!", "uid": uid}), 200
 
+# # Post Songs to users Firestore
+# @app.route("/post_song", methods=["POST"])
+# def post_song():
 
+#     try:
+#         # Get the token from the request header
+#         token = request.headers.get("Authorization")
+#         if not token:
+#             return jsonify({"error": "Token is missing"}), 403
+        
+#          # Remove "Bearer " prefix if present
+#         token = token.replace("Bearer ", "").strip()
+
+#         print("Received Authorization Header:", request.headers.get("Authorization"))
+
+
+#         # Verify token (you need to implement `verify_token` function)
+#         uid = verify_token(token)
+#         if not uid:
+#             return jsonify({"error": "Invalid token"}), 403
+
+#         # Get song data from the request body
+#         data = request.json
+#         song = data.get("song")  # Expecting a dictionary with song details
+
+#         if not song:
+#             return jsonify({"error": "No song data provided"}), 400
+
+#         # Reference to the user document in Firestore
+#         user_ref = db.collection("users").document(uid)
+#         user_doc = user_ref.get()
+
+#         if user_doc.exists:
+#             # Use a subcollection 'personalSongs' under the user document
+#             personal_songs_ref = user_ref.collection("personalSongs")
+#             personal_songs_ref.add(song)  # Adds the song as a new document in the subcollection
+
+#             return jsonify({"message": "Song added successfully"}), 200
+#         else:
+#             return jsonify({"error": "User not found"}), 404
+
+#     except Exception as e:
+#         # Log the error for debugging purposes
+#         print(f"Error: {str(e)}")
+#         return jsonify({"error": str(e)}), 400
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
