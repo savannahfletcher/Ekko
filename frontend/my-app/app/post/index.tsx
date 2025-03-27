@@ -1,8 +1,14 @@
-import { View, Text, StyleSheet, Pressable, TextInput, Image, FlatList, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Image, FlatList } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store"; // Optional for storing tokens
 import SelectPopup from "./Select";
+import { auth,storage, db,app  } from '../../firebaseConfig';
+import { collection, addDoc, doc, getDoc,serverTimestamp,setDoc } from "firebase/firestore";
+import { Alert } from "react-native";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import axios from "axios";
+
 
 const tokens = require("../../tokens.json");
 const SPOTIFY_CLIENT_ID = tokens.SPOTIFY_CLIENT_ID;
@@ -47,7 +53,7 @@ const PostScreen = () => {
       // Store the token securely (optional)
       await SecureStore.setItemAsync("spotify_token", data.access_token);
     } catch (error) {
-      console.error("Error fetching access token:", error);
+     // console.error("Error fetching access token:", error);
     }
   }
 
@@ -146,11 +152,58 @@ const PostScreen = () => {
     setModalVisible(true);
   };
 
-  const handlePost = (song: any, caption: any) => {
-    console.log("Posted:", { song, caption }); // Replace with actual posting logic
-    // important stuff is
-    setModalVisible(false);
+  
+  const handlePost = async (song: any, caption: string) => {
+    console.log("POSTING:", { song, caption });
+    try {
+      // Get the currently logged-in user from Firebase Authentication
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert("Error", "User not authenticated. Please log in.");
+        return;
+      }
+      // const token = await user.getIdToken(); // Ensure this returns a valid token
+      console.log("User id:", user.uid);
+  
+      // Add the song to Firestore under "personalSongs"
+      // FOR FRONTEND PEEPS: userSong is the object that holds the song chosen! so userSong.songId is the api id. 
+      const userSong = await addDoc(collection(db, "users", user.uid, "personalSongs"), {
+        songId: song.id,
+        title: song.name,
+        caption: caption,
+        timestamp: new Date(),
+      });
+  
+      console.log("Song POSTED with ID:", userSong.id);
+
+      console.log("POSTING SONG TO FEED DATABASE NOW"); 
+
+    // 🔹 Retrieve username from Firestore
+    const userDocRef = doc(db, "users", user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    const username = userDocSnap.exists() ? userDocSnap.data().username : "Unknown User";
+
+     // 🔹  Post song to "feed" collection
+    await setDoc(doc(db, "feed", userSong.id), {
+      userId: user.uid,
+      songId: song.id,
+      title: song.name,
+      caption: caption,
+      userID: user.uid,
+      username: username, // Store username for easy display
+      timestamp: serverTimestamp(),
+    });
+
+    console.log("✅ Song posted to FEED with ID:", userSong.id);
+
+
+    } catch (error) {
+      console.error("Error posting song:", error);
+    }
+
   };
+  
+
 
   return (
     <>
