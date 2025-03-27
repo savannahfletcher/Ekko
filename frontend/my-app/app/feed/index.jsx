@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, FlatList, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
