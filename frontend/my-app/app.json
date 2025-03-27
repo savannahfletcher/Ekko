@@ -4,6 +4,7 @@
     "slug": "my-app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "assetBundlePatterns": ["**/*", "assets/fonts/*"],
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
