@@ -42,32 +42,59 @@ const FeedScreen = () => {
             console.error("Error fetching Spotify token:", error.response?.data || error.message);
         }
     };
-
-    // 🔹 Fetch Firestore Feed Data and Merge with Spotify Song Details
     const fetchFeedWithSongs = async () => {
         try {
             console.log("Fetching posts from Firestore...");
             const querySnapshot = await getDocs(collection(db, "feed"));
             let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
+    
             console.log(`Found ${feedData.length} posts in Firestore.`);
-
+    
             if (!feedData.length) return; // No posts, exit early
-
+    
+            // Sort posts by timestamp, most recent first
+            feedData.sort((a, b) => b.timestamp - a.timestamp);
+    
             // Fetch all song details in parallel
             const songDetailsPromises = feedData.map(async (post) => {
                 const songDetails = await fetchSongDetails(post.songId);
                 return { ...post, songDetails };
             });
-
+    
             const postsWithDetails = await Promise.all(songDetailsPromises);
             setPosts(postsWithDetails);
             console.log("All posts updated with song details!");
-
+    
         } catch (error) {
             console.error("Error fetching feed data:", error);
         }
     };
+
+    // 🔹 Fetch Firestore Feed Data and Merge with Spotify Song Details
+    // const fetchFeedWithSongs = async () => {
+    //     try {
+    //         console.log("Fetching posts from Firestore...");
+    //         const querySnapshot = await getDocs(collection(db, "feed"));
+    //         let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    //         console.log(`Found ${feedData.length} posts in Firestore.`);
+
+    //         if (!feedData.length) return; // No posts, exit early
+
+    //         // Fetch all song details in parallel
+    //         const songDetailsPromises = feedData.map(async (post) => {
+    //             const songDetails = await fetchSongDetails(post.songId);
+    //             return { ...post, songDetails };
+    //         });
+
+    //         const postsWithDetails = await Promise.all(songDetailsPromises);
+    //         setPosts(postsWithDetails);
+    //         console.log("All posts updated with song details!");
+
+    //     } catch (error) {
+    //         console.error("Error fetching feed data:", error);
+    //     }
+    // };
 
     // 🔹 Fetch song details from Spotify API
     const fetchSongDetails = async (songId) => {
@@ -124,7 +151,7 @@ const FeedScreen = () => {
         <View style={styles.container}>
             {(username || userEmail) && (
                 <Text style={styles.welcomeText}>
-                    Welcome, {username || userEmail}!
+                    Welcome, @{username || userEmail}!
                 </Text>
             )}
             <FlatList 

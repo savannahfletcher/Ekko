@@ -153,44 +153,84 @@ const PostScreen = () => {
   };
   const handlePost = async (song: any, caption: string) => {
     console.log("POSTING:", { song, caption });
-
+  
     try {
-        // Get the currently logged-in user from Firebase Authentication
-        const user = auth.currentUser;
-        if (!user) {
-            Alert.alert("Error", "User not authenticated. Please log in.");
-            return;
-        }
-
-        const token = await user.getIdToken(); // Ensure this returns a valid token
-        console.log("AUTH TOKEN:", token);
-
-        // Get the username (or fallback to "Unknown User" if not available)
-        const username = user.displayName || "Unknown User";
-
-        // Create a post object
-        const postData = {
-            songId: song.id,
-            title: song.name,
-            artist: song.artists.map((artist: any) => artist.name).join(", "),
-            caption: caption,
-            timestamp: new Date(),
-            userId: user.uid, // Store user ID for reference
-            username: username, // Store the username
-        };
-
-        // Save to user's personal collection
-        const personalPost = await addDoc(collection(db, "users", user.uid, "personalSongs"), postData);
-        console.log("Song POSTED to personalSongs with ID:", personalPost.id);
-
-        // Save to global "feed" collection
-        const feedPost = await addDoc(collection(db, "feed"), postData);
-        console.log("Song POSTED to feed with ID:", feedPost.id);
-
+      // Get the currently logged-in user from Firebase Authentication
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert("Error", "User not authenticated. Please log in.");
+        return;
+      }
+  
+      const token = await user.getIdToken(); // Ensure this returns a valid token
+      console.log("AUTH TOKEN:", token);
+  
+      // Ensure username is fetched or fallback to email if not set
+      const username = user.displayName || user.email || "Unknown User";
+  
+      // Create a post object
+      const postData = {
+        songId: song.id,
+        title: song.name,
+        artist: song.artists.map((artist: any) => artist.name).join(", "),
+        caption: caption,
+        timestamp: new Date(),
+        userId: user.uid, // Store user ID for reference
+        username: username, // Store the username (falling back to email or "Unknown User")
+      };
+  
+      // Save to user's personal collection
+      const personalPost = await addDoc(collection(db, "users", user.uid, "personalSongs"), postData);
+      console.log("Song POSTED to personalSongs with ID:", personalPost.id);
+  
+      // Save to global "feed" collection
+      const feedPost = await addDoc(collection(db, "feed"), postData);
+      console.log("Song POSTED to feed with ID:", feedPost.id);
+  
     } catch (error) {
-        console.error("Error posting song:", error);
+      console.error("Error posting song:", error);
     }
-};
+  };
+//   const handlePost = async (song: any, caption: string) => {
+//     console.log("POSTING:", { song, caption });
+
+//     try {
+//         // Get the currently logged-in user from Firebase Authentication
+//         const user = auth.currentUser;
+//         if (!user) {
+//             Alert.alert("Error", "User not authenticated. Please log in.");
+//             return;
+//         }
+
+//         const token = await user.getIdToken(); // Ensure this returns a valid token
+//         console.log("AUTH TOKEN:", token);
+
+//         // Get the username (or fallback to "Unknown User" if not available)
+//         const username = user.displayName || "Unknown User";
+
+//         // Create a post object
+//         const postData = {
+//             songId: song.id,
+//             title: song.name,
+//             artist: song.artists.map((artist: any) => artist.name).join(", "),
+//             caption: caption,
+//             timestamp: new Date(),
+//             userId: user.uid, // Store user ID for reference
+//             username: username, // Store the username
+//         };
+
+//         // Save to user's personal collection
+//         const personalPost = await addDoc(collection(db, "users", user.uid, "personalSongs"), postData);
+//         console.log("Song POSTED to personalSongs with ID:", personalPost.id);
+
+//         // Save to global "feed" collection
+//         const feedPost = await addDoc(collection(db, "feed"), postData);
+//         console.log("Song POSTED to feed with ID:", feedPost.id);
+
+//     } catch (error) {
+//         console.error("Error posting song:", error);
+//     }
+// };
 
   // const handlePost = async (song: any, caption: string) => {
   //   console.log("POSTING:", { song, caption });
