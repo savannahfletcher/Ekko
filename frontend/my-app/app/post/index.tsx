@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store"; // Optional for storing tokens
 import SelectPopup from "./Select";
 import { auth,storage, db,app  } from '../../firebaseConfig';
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc,serverTimestamp,setDoc } from "firebase/firestore";
 import { Alert } from "react-native";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import axios from "axios";
@@ -151,9 +151,10 @@ const PostScreen = () => {
     setSelectedSong(song);
     setModalVisible(true);
   };
+
+  
   const handlePost = async (song: any, caption: string) => {
     console.log("POSTING:", { song, caption });
-  
     try {
       // Get the currently logged-in user from Firebase Authentication
       const user = auth.currentUser;
@@ -161,143 +162,46 @@ const PostScreen = () => {
         Alert.alert("Error", "User not authenticated. Please log in.");
         return;
       }
+      // const token = await user.getIdToken(); // Ensure this returns a valid token
+      console.log("User id:", user.uid);
   
-      const token = await user.getIdToken(); // Ensure this returns a valid token
-      console.log("AUTH TOKEN:", token);
-  
-      // Ensure username is fetched or fallback to email if not set
-      const username = user.displayName || user.email || "Unknown User";
-  
-      // Create a post object
-      const postData = {
+      // Add the song to Firestore under "personalSongs"
+      // FOR FRONTEND PEEPS: userSong is the object that holds the song chosen! so userSong.songId is the api id. 
+      const userSong = await addDoc(collection(db, "users", user.uid, "personalSongs"), {
         songId: song.id,
         title: song.name,
-        artist: song.artists.map((artist: any) => artist.name).join(", "),
         caption: caption,
         timestamp: new Date(),
-        userId: user.uid, // Store user ID for reference
-        username: username, // Store the username (falling back to email or "Unknown User")
-      };
+      });
   
-      // Save to user's personal collection
-      const personalPost = await addDoc(collection(db, "users", user.uid, "personalSongs"), postData);
-      console.log("Song POSTED to personalSongs with ID:", personalPost.id);
-  
-      // Save to global "feed" collection
-      const feedPost = await addDoc(collection(db, "feed"), postData);
-      console.log("Song POSTED to feed with ID:", feedPost.id);
-  
+      console.log("Song POSTED with ID:", userSong.id);
+
+      console.log("POSTING SONG TO FEED DATABASE NOW"); 
+
+    // 🔹 Retrieve username from Firestore
+    const userDocRef = doc(db, "users", user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    const username = userDocSnap.exists() ? userDocSnap.data().username : "Unknown User";
+
+     // 🔹  Post song to "feed" collection
+    await setDoc(doc(db, "feed", userSong.id), {
+      userId: user.uid,
+      songId: song.id,
+      title: song.name,
+      caption: caption,
+      userID: user.uid,
+      username: username, // Store username for easy display
+      timestamp: serverTimestamp(),
+    });
+
+    console.log("✅ Song posted to FEED with ID:", userSong.id);
+
+
     } catch (error) {
       console.error("Error posting song:", error);
     }
+
   };
-//   const handlePost = async (song: any, caption: string) => {
-//     console.log("POSTING:", { song, caption });
-
-//     try {
-//         // Get the currently logged-in user from Firebase Authentication
-//         const user = auth.currentUser;
-//         if (!user) {
-//             Alert.alert("Error", "User not authenticated. Please log in.");
-//             return;
-//         }
-
-//         const token = await user.getIdToken(); // Ensure this returns a valid token
-//         console.log("AUTH TOKEN:", token);
-
-//         // Get the username (or fallback to "Unknown User" if not available)
-//         const username = user.displayName || "Unknown User";
-
-//         // Create a post object
-//         const postData = {
-//             songId: song.id,
-//             title: song.name,
-//             artist: song.artists.map((artist: any) => artist.name).join(", "),
-//             caption: caption,
-//             timestamp: new Date(),
-//             userId: user.uid, // Store user ID for reference
-//             username: username, // Store the username
-//         };
-
-//         // Save to user's personal collection
-//         const personalPost = await addDoc(collection(db, "users", user.uid, "personalSongs"), postData);
-//         console.log("Song POSTED to personalSongs with ID:", personalPost.id);
-
-//         // Save to global "feed" collection
-//         const feedPost = await addDoc(collection(db, "feed"), postData);
-//         console.log("Song POSTED to feed with ID:", feedPost.id);
-
-//     } catch (error) {
-//         console.error("Error posting song:", error);
-//     }
-// };
-
-  // const handlePost = async (song: any, caption: string) => {
-  //   console.log("POSTING:", { song, caption });
-  
-  //   try {
-  //     // Get the currently logged-in user from Firebase Authentication
-  //     const user = auth.currentUser;
-  //     if (!user) {
-  //       Alert.alert("Error", "User not authenticated. Please log in.");
-  //       return;
-  //     }
-      
-  //     const token = await user.getIdToken(); // Ensure this returns a valid token
-  //     console.log("AUTH TOKEN:", token);
-  
-  //     // Create a post object
-  //     const postData = {
-  //       songId: song.id,
-  //       title: song.name,
-  //       artist: song.artists.map((artist: any) => artist.name).join(", "),
-  //       caption: caption,
-  //       timestamp: new Date(),
-  //       userId: user.uid, // Store user ID for reference
-  //       username: user.displayName || "Unknown User", // Add username if available
-  //     };
-  
-  //     // Save to user's personal collection
-  //     const personalPost = await addDoc(collection(db, "users", user.uid, "personalSongs"), postData);
-  //     console.log("Song POSTED to personalSongs with ID:", personalPost.id);
-  
-  //     // Save to global "feed" collection
-  //     const feedPost = await addDoc(collection(db, "feed"), postData);
-  //     console.log("Song POSTED to feed with ID:", feedPost.id);
-  
-  //   } catch (error) {
-  //     console.error("Error posting song:", error);
-  //   }
-  // };
-  
-  // const handlePost = async (song: any, caption: string) => {
-  //   console.log("POSTING:", { song, caption });
-  //   try {
-  //     // Get the currently logged-in user from Firebase Authentication
-  //     const user = auth.currentUser;
-  //     if (!user) {
-  //       Alert.alert("Error", "User not authenticated. Please log in.");
-  //       return;
-  //     }
-  //     const token = await user.getIdToken(); // Ensure this returns a valid token
-  //     console.log("AUTH TOKEN:", token);
-  
-  //     // Add the song to Firestore under "personalSongs"
-  //     // FOR FRONTEND PEEPS: userSong is the object that holds the song chosen! so userSong.songId is the api id. 
-  //     const userSong = await addDoc(collection(db, "users", user.uid, "personalSongs"), {
-  //       songId: song.id,
-  //       title: song.name,
-  //       artist: song.artists.map((artist: any) => artist.name).join(", "),
-  //       caption: caption,
-  //       timestamp: new Date(),
-  //     });
-  
-  //     console.log("Song POSTED with ID:", userSong.id);
-
-  //   } catch (error) {
-  //     console.error("Error posting song:", error);
-  //   }
-  // };
   
 
 
