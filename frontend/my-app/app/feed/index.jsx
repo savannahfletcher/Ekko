@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     },
     postItem: {
         padding: 20,
-        marginBottom: 50,
+        marginBottom: 30,
         borderRadius: 19,
     },
     postHeader: {

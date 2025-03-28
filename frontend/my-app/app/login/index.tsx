@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
+import { View, TextInput, Button, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { auth } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import {useRouter} from 'expo-router';
+import { useFonts } from 'expo-font';
 
 const SignInScreen = () => {
   const [email, setEmail] = useState('');
@@ -12,6 +13,14 @@ const SignInScreen = () => {
   const [error, setError] = useState('');
 
   const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'), // Adjust the path to your font file
+  });
+
+  if (!fontsLoaded) {
+    return <Text>Loading fonts...</Text>; // Show a loading screen while the font is loading
+  }
 
   // ✅ Function to map Firebase error codes to user-friendly messages
   const getErrorMessage = (error: any) => {
@@ -50,8 +59,14 @@ const SignInScreen = () => {
     }
   };
 
+  // Routes user to the registration page
+  const handleSignUp = () => {
+    router.replace('./register');
+  };
+
   return (
     <View style = {styles.container}>
+      <Text style = {styles.ekkoText}> Ekko </Text>
       <Text style = {styles.topText}>
         Sign in to post your Ekko!
         </Text>
@@ -81,7 +96,11 @@ const SignInScreen = () => {
       
         <Button title="LOGIN" onPress={handleLogin} color='#4221D6' />
 
-        <Text style = {styles.forgotText}>Forgot your password?</Text>
+        <TouchableOpacity onPress={handleSignUp}>
+            <Text style={styles.newUserText}>
+              New user? Sign up here!
+            </Text>
+        </TouchableOpacity>
 
         {message ? <Text style={{ color: 'green', marginTop: 10 , padding: 5}}>{message}</Text> : null}
         {error ? <Text style={{ color: 'red', marginTop: 10 , padding: 5}}>{error}</Text> : null}
@@ -95,7 +114,14 @@ const styles = StyleSheet.create ({
       flex: 1,
       padding: 20,
       backgroundColor: '#2f2f2f',
-    },
+  },
+  ekkoText: {
+    fontSize: 36,
+    color: '#fff',
+    textAlign: 'center',
+    fontFamily: 'MontserratAlternates-ExtraBold',
+    padding: 10,
+  },
   loginBox: {
       padding: 20,
       marginBottom: 50,
@@ -120,8 +146,8 @@ const styles = StyleSheet.create ({
     backgroundColor: '#fff',
     borderRadius: 10,
   },
-  forgotText: {
-      fontSize: 12,
+  newUserText: {
+      fontSize: 16,
       color: '#A7A7A7',
       paddingTop: 20,
       paddingLeft: 5,

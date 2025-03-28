@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { View, TextInput, Button, Text, StyleSheet, Image } from 'react-native';
+import { View, TextInput, Button, Text, StyleSheet, Image , TouchableOpacity } from 'react-native';
 import { auth,storage, db  } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -8,6 +8,7 @@ import { collection, doc, setDoc, getDoc } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import {useRouter} from 'expo-router';
+import { useFonts } from 'expo-font';
 import Icon from "react-native-vector-icons/FontAwesome";
 
 const Register = () => {
@@ -18,7 +19,15 @@ const Register = () => {
   const [username, setUsername] = useState("");
   const [profilePic, setProfilePic] = useState<string | null>(null); // takes string or null
 
-    const router = useRouter();
+  const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'), // Adjust the path to your font file
+  });
+  
+  if (!fontsLoaded) {
+    return <Text>Loading fonts...</Text>; // Show a loading screen while the font is loading
+  }
 
   // ✅ Function to map Firebase error codes to user-friendly messages
   const getErrorMessage = (error: any) => {
@@ -44,17 +53,6 @@ const Register = () => {
     return '⚠️ An unknown error occurred. Please try again.';
   };
 
-  // ✅ Login function with specific error handling
-  const handleLogin = async () => {
-    setError('');
-    setMessage('');
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setMessage('✅ Login successful!'); // Show success message
-    } catch (err: any) {
-      setError(getErrorMessage(err)); // ✅ Ensure error is handled properly
-    }
-  };
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,  // ✅ Fix mediaType
@@ -82,7 +80,11 @@ const Register = () => {
       }
     }
   };
-  
+
+  // Reroutes user to the login page
+  const handleBackToLogin = () => {
+    router.replace('./login');
+  };
 
   // Function to upload image to Firebase Storage
   const uploadImage = async (uid: string) => {
@@ -164,6 +166,7 @@ const Register = () => {
 
   return (
     <View style = {styles.container}>
+      <Text style = {styles.ekkoText}> Ekko </Text>
       <Text style = {styles.topText}>
         Welcome to Ekko! Let's create your account!
         </Text>
@@ -211,8 +214,11 @@ const Register = () => {
       {message ? <Text style={{ color: 'green', marginTop: 10 }}>{message}</Text> : null}
       {error ? <Text style={{ color: 'red', marginTop: 10 }}>{error}</Text> : null}
 
-      <Text style = {styles.forgotText}>Already have an account?</Text>
-      <Button title="LOGIN" onPress={handleLogin} color='#4221D6'/>
+      <TouchableOpacity onPress={handleBackToLogin}>
+            <Text style={styles.backToLoginText}>
+              Already have an account? Login here!
+            </Text>
+        </TouchableOpacity>
 
       </LinearGradient>
     </View>
@@ -224,7 +230,14 @@ const styles = StyleSheet.create ({
       flex: 1,
       padding: 20,
       backgroundColor: '#2f2f2f',
-    },
+  },
+  ekkoText: {
+    fontSize: 36,
+    color: '#fff',
+    textAlign: 'center',
+    fontFamily: 'MontserratAlternates-ExtraBold',
+    padding: 10,
+  },
   loginBox: {
       padding: 20,
       marginBottom: 50,
@@ -249,7 +262,7 @@ const styles = StyleSheet.create ({
     backgroundColor: '#fff',
     borderRadius: 10,
   },
-  forgotText: {
+  backToLoginText: {
       fontSize: 16,
       color: '#A7A7A7',
       paddingTop: 30,
