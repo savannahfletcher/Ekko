@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, Image } from "react-native";
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity} from "react-native";
+import { useFonts } from 'expo-font';
+ import {useRouter} from 'expo-router';
 import { LinearGradient } from "expo-linear-gradient";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore"; 
@@ -19,10 +21,24 @@ const SPOTIFY_CLIENT_ID = tokens.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = tokens.SPOTIFY_CLIENT_SECRET;
 
 const FeedScreen = () => {
+    const router = useRouter();
     const [userEmail, setUserEmail] = useState(null);
     const [username, setUsername] = useState(null);
     const [posts, setPosts] = useState([]); // Stores posts with song details
     const [accessToken, setAccessToken] = useState("");
+
+    const [fontsLoaded] = useFonts({
+        'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'), // Adjust the path to your font file
+    });
+
+    if (!fontsLoaded) {
+    return <Text>Loading fonts...</Text>; // Show a loading screen while the font is loading
+    }
+
+    // Routes user to the search/post page
+    const routeToPost = () => {
+        router.replace('./post');
+    };
 
     // 🔹 Fetch Spotify Access Token (valid for 1 hour)
     const fetchSpotifyAccessToken = async () => {
@@ -149,14 +165,33 @@ const FeedScreen = () => {
 
     return (
         <View style={styles.container}>
-            {(username || userEmail) && (
-                <Text style={styles.welcomeText}>
-                    Welcome, @{username || userEmail}!
-                </Text>
-            )}
+            <Text style = {styles.ekkoText}> Ekko </Text>
             <FlatList 
                 data={posts}
                 keyExtractor={(item) => item.id}
+                ListHeaderComponent={ // Items here will scroll too! i.e. Welcome msg, post button, etc.
+                    <>
+                        {(username || userEmail) && (
+                            <Text style={styles.welcomeText}>
+                                Welcome, @{username || userEmail}!
+                            </Text>
+                        )}
+                        {/* Once we are doing daily posting, add a check to only display button if the user has not posted today */}
+                        <TouchableOpacity onPress={routeToPost} style={styles.shadowContainer}>
+                            <View style={styles.buttonContainer}>
+                                <LinearGradient
+                                colors={['#6E1FD1', '#A338F4']}
+                                start={{ x: 0, y: 0.5 }}
+                                end={{ x: 1, y: 0.5 }}
+                                style={styles.gradient}
+                                >
+                                <Text style={styles.buttonText}>Post your Ekko!</Text>
+                                </LinearGradient>
+                            </View>
+                        </TouchableOpacity>
+                        <Text style={styles.postUsername}>See what your friends are listening to!</Text>
+                    </>
+                  }                
                 renderItem={({ item, index }) => {
                     const profilePic = defaultProfilePics[index % defaultProfilePics.length];
 
@@ -206,6 +241,41 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 20,
+    },
+    ekkoText: {
+        fontSize: 36,
+        color: '#fff',
+        textAlign: 'center',
+        fontFamily: 'MontserratAlternates-ExtraBold',
+        paddingBottom: 10,
+    },
+    shadowContainer: {
+        alignSelf: 'center',
+        marginBottom: 20, // padding below button
+        shadowColor: '#000',
+        shadowOffset: { width: 4, height: 4 }, // bottom-right shadow
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+        elevation: 6, // necessary for Android shadow
+        borderRadius: 10, 
+    },
+    buttonContainer: {
+        borderRadius: 10,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'black', // thin black outline
+    },
+    gradient: {
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    buttonText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#fff',
+        padding: 15,
     },
     postItem: {
         padding: 20,
