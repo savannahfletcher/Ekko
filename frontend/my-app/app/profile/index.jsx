@@ -1,12 +1,24 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList } from "react-native";
+import { View, Text, StyleSheet, FlatList, Image} from "react-native";
+import { LinearGradient } from 'expo-linear-gradient';
 import { getFirestore, collection, doc, getDocs } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig"; // ✅ Ensure Firebase is correctly imported
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { useFonts } from 'expo-font';
+
+import tempProfilePic from '@/assets/images/profileImages/profilePic2.jpg';
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
     const [userId, setUserId] = useState(null);
+
+    const [fontsLoaded] = useFonts({
+        'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'), // Adjust the path to your font file
+    });
+    
+    if (!fontsLoaded) {
+        return <Text>Loading fonts...</Text>; // Show a loading screen while the font is loading
+    }
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -37,19 +49,38 @@ const ProfileScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Profile Page</Text>
-            <Text style={styles.title}> List of Songs</Text>
-            <FlatList
-                data={personalSongs}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                    <View style={styles.songItem}>
-                        <Text style={styles.songTitle}>{item.title}</Text>
-                        <Text style={styles.songArtist}>Artist: {item.artist}</Text>
-                        <Text style={styles.songCaption}>{item.caption}</Text>
+            <Text style = {styles.ekkoText}> Ekko </Text>
+            <LinearGradient
+            colors={['#3A0398', '#150F29']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 0.7 }}
+            style={styles.loginBox}
+            >
+                <View style={styles.profileHeader}>
+                    {/* TODO: replace tempProfilePic with actual loaded profile pics */}
+                    <Image source={tempProfilePic} style={styles.profilePic} />
+                    <View style={styles.subHeader}>
+                        {/* TODO: replace [username] and [num] with variables for each */}
+                        <Text style={styles.userNameText}>[username]</Text>
+                        <Text style={styles.friendsText}>[num] friends</Text> 
                     </View>
-                )}
-            />
+                </View>
+                <Text style={styles.title}>Badges</Text>
+                {/* TODO: support badges on the profile */}
+                <Text style={styles.title}>Previous Ekkos</Text>
+                <FlatList
+                    data={personalSongs}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                        <View style={styles.songItem}>
+                            <Text style={styles.songTitle}>{item.title}</Text>
+                            <Text style={styles.songArtist}>Artist: {item.artist}</Text>
+                            <Text style={styles.songCaption}>{item.caption}</Text>
+                        </View>
+                    )}
+                />
+            </LinearGradient>
+            
         </View>
     );
 };
@@ -60,8 +91,44 @@ const styles = StyleSheet.create({
         padding: 20,
         backgroundColor: "#2f2f2f",
     },
+    ekkoText: {
+        fontSize: 36,
+        color: '#fff',
+        textAlign: 'center',
+        fontFamily: 'MontserratAlternates-ExtraBold',
+        padding: 10,
+    },
+    loginBox: {
+        padding: 20,
+        marginBottom: 50,
+        borderRadius: 19,
+    },
+    profileHeader: { // contains profile pic and subHeader (username & friends count)
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 15,
+    },
+    profilePic: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+    },
+    subHeader: { // contains username & friends count
+        marginLeft: 15,
+    },
+    userNameText: {
+        fontSize: 24,
+        fontWeight: "bold",
+        color: "#fff",
+    },
+    friendsText: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: '#B3B3B3',
+    },
     title: {
-        fontSize: 28,
+        fontSize: 24,
         fontWeight: "bold",
         marginBottom: 10,
         color: "#fff",
