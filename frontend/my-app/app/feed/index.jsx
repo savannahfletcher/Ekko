@@ -2,18 +2,16 @@ import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity} from "react-native";
 import { useFonts } from 'expo-font';
  import {useRouter} from 'expo-router';
-import { LinearGradient } from "expo-linear-gradient";
+import { LinearGradient } from "expo-linear-gradient"; 
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore"; 
 import { auth, db } from "../../firebaseConfig"; 
 import axios from "axios";
 
 // Default profile pictures for testing
-import profilePic1 from '@/assets/images/profileImages/profilePic1.jpg';
-import profilePic2 from '@/assets/images/profileImages/profilePic2.jpg';
-import profilePic3 from '@/assets/images/profileImages/profilePic3.jpg';
+import profilePic1 from '@/assets/images/profileImages/image.png';
 
-const defaultProfilePics = [profilePic1, profilePic2, profilePic3];
+const defaultProfilePics = [profilePic1];
 
 const SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 const tokens = require("../../tokens.json");
@@ -24,11 +22,11 @@ const FeedScreen = () => {
     const router = useRouter();
     const [userEmail, setUserEmail] = useState(null);
     const [username, setUsername] = useState(null);
-    const [posts, setPosts] = useState([]); // Stores posts with song details
+    const [posts, setPosts] = useState([]); 
     const [accessToken, setAccessToken] = useState("");
 
     const [fontsLoaded] = useFonts({
-        'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'), // Adjust the path to your font file
+        'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
     });
 
     if (!fontsLoaded) {
@@ -65,53 +63,52 @@ const FeedScreen = () => {
             let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
             console.log(`Found ${feedData.length} posts in Firestore.`);
+            if (!feedData.length) return;
     
-            if (!feedData.length) return; // No posts, exit early
-    
-            // Sort posts by timestamp, most recent first
+            // Sort by timestamp
             feedData.sort((a, b) => b.timestamp - a.timestamp);
     
-            // Fetch all song details in parallel
-            const songDetailsPromises = feedData.map(async (post) => {
+            const postsWithDetails = await Promise.all(feedData.map(async (post) => {
                 const songDetails = await fetchSongDetails(post.songId);
-                return { ...post, songDetails };
-            });
     
-            const postsWithDetails = await Promise.all(songDetailsPromises);
+                let profilePic = null;
+                let postUsername = "Unknown User";
+    
+                const userId = post.userId;
+                if (!userId) {
+                    console.warn(`Post ${post.id} has no userId.`);
+                    return { ...post, songDetails, profilePic, username: postUsername };
+                }
+    
+                try {
+                    const userRef = doc(db, "users", userId);
+                    const userSnap = await getDoc(userRef);
+    
+                    if (userSnap.exists()) {
+                        const userData = userSnap.data();
+                        profilePic = userData.profilePic || null;
+                        postUsername = userData.username || "Unknown User";
+                    } else {
+                        console.warn(`User document not found for userId: ${userId}`);
+                    }
+                } catch (error) {
+                    console.error(`Error getting user data for userId: ${userId}`, error);
+                }
+    
+                return {
+                    ...post,
+                    songDetails,
+                    profilePic,
+                    username: postUsername,
+                };
+            }));
+    
             setPosts(postsWithDetails);
-            console.log("All posts updated with song details!");
-    
+            console.log("Posts successfully updated with user data.");
         } catch (error) {
             console.error("Error fetching feed data:", error);
         }
     };
-
-    // 🔹 Fetch Firestore Feed Data and Merge with Spotify Song Details
-    // const fetchFeedWithSongs = async () => {
-    //     try {
-    //         console.log("Fetching posts from Firestore...");
-    //         const querySnapshot = await getDocs(collection(db, "feed"));
-    //         let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    //         console.log(`Found ${feedData.length} posts in Firestore.`);
-
-    //         if (!feedData.length) return; // No posts, exit early
-
-    //         // Fetch all song details in parallel
-    //         const songDetailsPromises = feedData.map(async (post) => {
-    //             const songDetails = await fetchSongDetails(post.songId);
-    //             return { ...post, songDetails };
-    //         });
-
-    //         const postsWithDetails = await Promise.all(songDetailsPromises);
-    //         setPosts(postsWithDetails);
-    //         console.log("All posts updated with song details!");
-
-    //     } catch (error) {
-    //         console.error("Error fetching feed data:", error);
-    //     }
-    // };
-
     // 🔹 Fetch song details from Spotify API
     const fetchSongDetails = async (songId) => {
         if (!accessToken) return null;
@@ -193,7 +190,7 @@ const FeedScreen = () => {
                     </>
                   }                
                 renderItem={({ item, index }) => {
-                    const profilePic = defaultProfilePics[index % defaultProfilePics.length];
+                    const profilePic = item.profilePic ? { uri: item.profilePic } : defaultProfilePics[index % defaultProfilePics.length];
 
                     return (
                         <LinearGradient
@@ -251,19 +248,19 @@ const styles = StyleSheet.create({
     },
     shadowContainer: {
         alignSelf: 'center',
-        marginBottom: 20, // padding below button
+        marginBottom: 20,
         shadowColor: '#000',
-        shadowOffset: { width: 4, height: 4 }, // bottom-right shadow
+        shadowOffset: { width: 4, height: 4 }, 
         shadowOpacity: 0.4,
         shadowRadius: 6,
-        elevation: 6, // necessary for Android shadow
+        elevation: 6,
         borderRadius: 10, 
     },
     buttonContainer: {
         borderRadius: 10,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'black', // thin black outline
+        borderColor: 'black', 
     },
     gradient: {
         paddingVertical: 12,

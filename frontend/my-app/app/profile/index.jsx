@@ -1,29 +1,30 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, Image} from "react-native";
+import { View, Text, StyleSheet, FlatList, Image } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
-import { getFirestore, collection, doc, getDocs } from "firebase/firestore";
-import { auth, db } from "../../firebaseConfig"; // ✅ Ensure Firebase is correctly imported
+import { getFirestore, doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { auth, db } from "../../firebaseConfig"; 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useFonts } from 'expo-font';
-
-import tempProfilePic from '@/assets/images/profileImages/profilePic2.jpg';
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
     const [userId, setUserId] = useState(null);
+    const [username, setUsername] = useState("Loading...");
+    const [profilePic, setProfilePic] = useState(null);
 
     const [fontsLoaded] = useFonts({
-        'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'), // Adjust the path to your font file
+        'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
     });
     
     if (!fontsLoaded) {
-        return <Text>Loading fonts...</Text>; // Show a loading screen while the font is loading
+        return <Text>Loading fonts...</Text>;
     }
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setUserId(user.uid);
+                fetchUserData(user.uid);
                 fetchPersonalSongs(user.uid);
             }
         });
@@ -31,9 +32,24 @@ const ProfileScreen = () => {
         return () => unsubscribe();
     }, []);
 
+    const fetchUserData = async (uid) => {
+        try {
+            const userDoc = await getDoc(doc(db, "users", uid));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                setUsername(userData.username || "Unknown User");
+                setProfilePic(userData.profilePic || null);
+            } else {
+                console.error("User document not found!");
+            }
+        } catch (error) {
+            console.error("Error fetching user data:", error);
+        }
+    };
+
     const fetchPersonalSongs = async (uid) => {
         try {
-            const songsRef = collection(db, "users", uid, "personalSongs"); // ✅ Correct Firestore path
+            const songsRef = collection(db, "users", uid, "personalSongs");
             const songsSnapshot = await getDocs(songsRef);
 
             const songsList = songsSnapshot.docs.map((doc) => ({
@@ -49,24 +65,22 @@ const ProfileScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Text style = {styles.ekkoText}> Ekko </Text>
+            <Text style={styles.ekkoText}> Ekko </Text>
             <LinearGradient
-            colors={['#3A0398', '#150F29']}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 0.7 }}
-            style={styles.loginBox}
+                colors={['#3A0398', '#150F29']}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 0.7 }}
+                style={styles.loginBox}
             >
                 <View style={styles.profileHeader}>
-                    {/* TODO: replace tempProfilePic with actual loaded profile pics */}
-                    <Image source={tempProfilePic} style={styles.profilePic} />
+                    {/* Dynamically Load Profile Pic */}
+                    <Image source={profilePic ? { uri: profilePic } : require('@/assets/images/profileImages/profilePic1.jpg')} style={styles.profilePic} />
                     <View style={styles.subHeader}>
-                        {/* TODO: replace [username] and [num] with variables for each */}
-                        <Text style={styles.userNameText}>[username]</Text>
+                        <Text style={styles.userNameText}>{username}</Text>
                         <Text style={styles.friendsText}>[num] friends</Text> 
                     </View>
                 </View>
                 <Text style={styles.title}>Badges</Text>
-                {/* TODO: support badges on the profile */}
                 <Text style={styles.title}>Previous Ekkos</Text>
                 <FlatList
                     data={personalSongs}
@@ -80,7 +94,6 @@ const ProfileScreen = () => {
                     )}
                 />
             </LinearGradient>
-            
         </View>
     );
 };
@@ -103,7 +116,7 @@ const styles = StyleSheet.create({
         marginBottom: 50,
         borderRadius: 19,
     },
-    profileHeader: { // contains profile pic and subHeader (username & friends count)
+    profileHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 10,
@@ -114,7 +127,7 @@ const styles = StyleSheet.create({
         height: 100,
         borderRadius: 50,
     },
-    subHeader: { // contains username & friends count
+    subHeader: {
         marginLeft: 15,
     },
     userNameText: {
