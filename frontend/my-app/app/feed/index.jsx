@@ -4,8 +4,9 @@ import { useFonts } from 'expo-font';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from "expo-linear-gradient";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc} from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
+import { Modal, ScrollView } from "react-native";
 import axios from "axios";
 
 import profilePic1 from '@/assets/images/profileImages/image.png';
@@ -26,6 +27,9 @@ const FeedScreen = () => {
     const [posts, setPosts] = useState([]);
     const [accessToken, setAccessToken] = useState("");
     const [showOnlyFriends, setShowOnlyFriends] = useState(true);
+    const [likedPosts, setLikedPosts] = useState(new Set());
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedLikes, setSelectedLikes] = useState([]);
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -93,22 +97,35 @@ const FeedScreen = () => {
     }, [accessToken, friendIDs, showOnlyFriends]);
 
     const fetchFeedWithSongs = async () => {
+        if (!userId) return; 
         try {
+            const tempLikedPosts = new Set();
             const querySnapshot = await getDocs(collection(db, "feed"));
             let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
+    
             // Only posts from friends + yourself
             if (showOnlyFriends) {
                 feedData = feedData.filter(post => friendIDs.includes(post.userId));
             }
+    
+            // Sort by timestamp (descending)
             feedData.sort((a, b) => b.timestamp - a.timestamp);
-
+          
+            // const tempLikedPosts = new Set(); // ✅ declare this here
             const postsWithDetails = await Promise.all(feedData.map(async (post) => {
                 const songDetails = await fetchSongDetails(post.songId);
-
+            
+                // 🔹 Get likes
+                const likesSnapshot = await getDocs(collection(db, "feed", post.id, "likes"));
+                const likeCount = likesSnapshot.size; // ✅ count of likes
+                const likedByUser = likesSnapshot.docs.find(doc => doc.id === userId);
+                if (likedByUser) {
+                    tempLikedPosts.add(post.id);
+                }
+            
                 let profilePic = null;
                 let postUsername = "Unknown User";
-
+            
                 try {
                     const userSnap = await getDoc(doc(db, "users", post.userId));
                     if (userSnap.exists()) {
@@ -119,16 +136,18 @@ const FeedScreen = () => {
                 } catch (error) {
                     console.error(`Error getting user data for ${post.userId}:`, error);
                 }
-
+            
                 return {
                     ...post,
                     songDetails,
                     profilePic,
                     username: postUsername,
+                    likeCount, // ✅ Add this
                 };
             }));
-
+    
             setPosts(postsWithDetails);
+            setLikedPosts(tempLikedPosts); // ✅ set state with liked post IDs
         } catch (error) {
             console.error("Error fetching feed data:", error);
         }
@@ -144,6 +163,55 @@ const FeedScreen = () => {
         } catch (error) {
             console.error(`Error fetching song details for ${songId}:`, error.response?.data || error.message);
             return null;
+        }
+    };
+
+    const handleLikePost = async (postId) => {
+        if (!userId || !username) return;
+    
+        const likeRef = doc(db, "feed", postId, "likes", userId);
+        const alreadyLiked = likedPosts.has(postId);
+    
+        try {
+            let newLikedPosts = new Set(likedPosts);
+            let newPosts = [...posts];
+    
+            const postIndex = newPosts.findIndex(p => p.id === postId);
+            if (postIndex === -1) return;
+    
+            if (alreadyLiked) {
+                await deleteDoc(likeRef);
+                newLikedPosts.delete(postId);
+                newPosts[postIndex].likeCount = Math.max((newPosts[postIndex].likeCount || 1) - 1, 0);
+            } else {
+                await setDoc(likeRef, {
+                    userID: userId,
+                    username: username,
+                });
+                newLikedPosts.add(postId);
+                newPosts[postIndex].likeCount = (newPosts[postIndex].likeCount || 0) + 1;
+            }
+    
+            setLikedPosts(newLikedPosts);
+            setPosts(newPosts);
+        } catch (error) {
+            console.error("Error liking/unliking post:", error);
+        }
+    };
+    const fetchLikers = async (postId) => {
+        try {
+            const likesRef = collection(db, "feed", postId, "likes");
+            const snapshot = await getDocs(likesRef);
+            const users = await Promise.all(snapshot.docs.map(async (docSnap) => {
+                const { userID } = docSnap.data();
+                const userRef = doc(db, "users", userID);
+                const userDoc = await getDoc(userRef);
+                return userDoc.exists() ? { id: userID, ...userDoc.data() } : null;
+            }));
+            setSelectedLikes(users.filter(Boolean));
+            setModalVisible(true);
+        } catch (error) {
+            console.error("Error fetching likers:", error);
         }
     };
 
@@ -226,10 +294,50 @@ const FeedScreen = () => {
                             )}
 
                             <Text style={styles.captionText}>"{item.caption}"</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                                <TouchableOpacity onPress={() => handleLikePost(item.id)}>
+                                    <Text style={{ color: likedPosts.has(item.id) ? '#A338F4' : '#ccc', fontWeight: 'bold' }}>
+                                        {likedPosts.has(item.id) ? "♥ Liked" : "♡ Like"}
+                                    </Text>
+                                </TouchableOpacity>
+                                <Text style={{ color: '#aaa', marginHorizontal: 6 }}>·</Text>
+                                <TouchableOpacity onPress={() => fetchLikers(item.id)}>
+                                    <Text style={{ color: '#aaa' }}>
+                                        {item.likeCount} like{item.likeCount !== 1 ? 's' : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         </LinearGradient>
+
                     );
                 }}
             />
+            <Modal
+            visible={modalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setModalVisible(false)}
+        >
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 }}>
+                <View style={{ backgroundColor: '#222', padding: 20, borderRadius: 10, maxHeight: '80%' }}>
+                    <Text style={{ color: '#fff', fontSize: 20, marginBottom: 15 }}>Liked by</Text>
+                    <ScrollView>
+                        {selectedLikes.map(user => (
+                            <View key={user.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                <Image
+                                    source={user.profilePic ? { uri: user.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                                />
+                                <Text style={{ color: '#fff', fontSize: 16 }}>@{user.username}</Text>
+                            </View>
+                        ))}
+                    </ScrollView>
+                    <TouchableOpacity onPress={() => setModalVisible(false)} style={{ marginTop: 20 }}>
+                        <Text style={{ color: '#A338F4', textAlign: 'center', fontSize: 16 }}>Close</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
         </View>
     );
 };

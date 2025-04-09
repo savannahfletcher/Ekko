@@ -4,7 +4,10 @@ import { View, TextInput, Button, Text, StyleSheet, TouchableOpacity } from 'rea
 import { auth } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import {useRouter} from 'expo-router';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 import { useFonts } from 'expo-font';
+
 
 const SignInScreen = () => {
   const [email, setEmail] = useState('');
@@ -47,15 +50,35 @@ const SignInScreen = () => {
   };
 
   // ✅ Login function with specific error handling
+
+  // Replace your current handleLogin with this:
   const handleLogin = async () => {
     setError('');
     setMessage('');
+  
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setMessage('✅ Login successful!'); // Show success message
-      router.replace('./feed')
+      let loginEmail = email;
+  
+      // Check if it's a username (doesn't contain "@")
+      if (!email.includes("@")) {
+        const q = query(collection(db, "users"), where("username", "==", email));
+        const querySnapshot = await getDocs(q);
+  
+        if (querySnapshot.empty) {
+          setError("⚠️ Username not found. Please try again or sign up.");
+          return;
+        }
+  
+        // Assume usernames are unique, grab the first match
+        loginEmail = querySnapshot.docs[0].data().email;
+      }
+  
+      // Use the resolved loginEmail to sign in
+      await signInWithEmailAndPassword(auth, loginEmail, password);
+      setMessage('✅ Login successful!');
+      router.replace('./feed');
     } catch (err: any) {
-      setError(getErrorMessage(err)); // ✅ Ensure error is handled properly
+      setError(getErrorMessage(err));
     }
   };
 
@@ -76,10 +99,10 @@ const SignInScreen = () => {
           end={{ x: 0.5, y: 0.7 }}
           style={styles.loginBox}
           >
-        <Text style = {styles.promptText}>Email:</Text>
+        <Text style = {styles.promptText}>Email or username:</Text>
         <TextInput
           style={styles.inputBox}
-          placeholder="Enter email"
+          placeholder="Enter email or username"
           value={email}
           onChangeText={setEmail}
         />
