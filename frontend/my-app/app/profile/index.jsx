@@ -6,6 +6,8 @@ import { auth, db } from "../../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useFonts } from 'expo-font';
 import { TextInput } from 'react-native';
+import { ScrollView } from 'react-native';
+import { setDoc, deleteDoc, query, where } from "firebase/firestore";
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
@@ -14,6 +16,8 @@ const ProfileScreen = () => {
     const [profilePic, setProfilePic] = useState(null);
     const [searchInput, setSearchInput] = useState('');
     const [matchedUsers, setMatchedUsers] = useState([]);
+    const [currentFriends, setCurrentFriends] = useState([]);
+    const [friendsList, setFriendsList] = useState([]);
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -29,6 +33,7 @@ const ProfileScreen = () => {
                 setUserId(user.uid);
                 fetchUserData(user.uid);
                 fetchPersonalSongs(user.uid);
+                fetchCurrentFriends(user.uid); 
             }
         });
 
@@ -65,7 +70,7 @@ const ProfileScreen = () => {
             console.error("Error fetching personal songs:", error);
         }
     };
-    
+// ---------------------------------------FRIENDS FETCHING FUNCTIONS------------------------------------
     const searchForFriend = async (input) => {
         setSearchInput(input);
         if (!input.trim()) {
@@ -89,6 +94,74 @@ const ProfileScreen = () => {
             console.error("Error searching for friends:", error);
         }
     };
+    const handleAddFriend = async (friend) => {
+        if (!userId || !username || !profilePic) return;
+    
+        const yourFriendRef = doc(db, "users", userId, "friends", friend.id);
+        const theirFriendRef = doc(db, "users", friend.id, "friends", userId);
+    
+        try {
+            const existingDoc = await getDoc(yourFriendRef);
+            if (existingDoc.exists()) {
+                console.log(`${friend.username} is already a friend.`);
+                return;
+            }
+    
+            // Add friend to your list
+            await setDoc(yourFriendRef, {
+                username: friend.username,
+                userID: friend.id,
+                profilePic: friend.profilePic || null,
+            });
+    
+            // Add yourself to their list
+            await setDoc(theirFriendRef, {
+                username,
+                userID: userId,
+                profilePic: profilePic || null,
+            });
+    
+            console.log(`Added ${friend.username} to your friends, and you to theirs!`);
+    
+            await fetchCurrentFriends(userId); // Refresh
+        } catch (error) {
+            console.error("Error adding friend:", error);
+        }
+    };
+    const fetchCurrentFriends = async (uid) => {
+        try {
+            const friendsRef = collection(db, "users", uid, "friends");
+            const snapshot = await getDocs(friendsRef);
+    
+            const friends = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+    
+            setCurrentFriends(friends.map(f => f.userID)); // for checking duplicates
+            setFriendsList(friends); // for display
+        } catch (error) {
+            console.error("Error fetching friends:", error);
+        }
+    };
+    const handleRemoveFriend = async (friendId) => {
+        if (!userId) return;
+    
+        try {
+            // Remove friend from your list
+            await setDoc(doc(db, "users", userId, "friends", friendId), {}, { merge: false });
+            await deleteDoc(doc(db, "users", userId, "friends", friendId));
+    
+            // Remove yourself from their list
+            await setDoc(doc(db, "users", friendId, "friends", userId), {}, { merge: false });
+            await deleteDoc(doc(db, "users", friendId, "friends", userId));
+    
+            console.log(`Removed friendship between you and ${friendId}`);
+            await fetchCurrentFriends(userId); // Refresh list
+        } catch (error) {
+            console.error("Error removing friend:", error);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -100,14 +173,49 @@ const ProfileScreen = () => {
                 style={styles.loginBox}
             >
                 <View style={styles.profileHeader}>
-                    <Image source={profilePic ? { uri: profilePic } : require('@/assets/images/profileImages/profilePic1.jpg')} style={styles.profilePic} />
+                    <Image source={profilePic ? { uri: profilePic } : require('@/assets/images/profileImages/image.png')} style={styles.profilePic} />
                     <View style={styles.subHeader}>
                         <Text style={styles.userNameText}>{username}</Text>
-                        <Text style={styles.friendsText}>[num] friends</Text> 
+                        <Text style={styles.friendsText}>{friendsList.length} friend{friendsList.length !== 1 ? 's' : ''}</Text>
                     </View>
                 </View>
                 <Text style={styles.title}>Badges</Text>
-                <View style={{ marginTop: 30 }}>
+{/* --------------------------------------------------------FRIENDS DISPLAY----------------------------------------------------------------------- */}
+            {friendsList.length > 0 && (
+                <View style={{ marginBottom: 20 }}>
+                    <Text style={styles.title}>Friend (Debug)</Text>
+                    <FlatList
+                        data={friendsList}
+                        keyExtractor={(item) => item.userID}
+                        renderItem={({ item }) => (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                <Image
+                                    source={item.profilePic ? { uri: item.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                                />
+                               <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text style={{ color: '#fff', fontSize: 16 }}>@{item.username}</Text>
+                                    <Text
+                                        onPress={() => handleRemoveFriend(item.userID)}
+                                        style={{
+                                            backgroundColor: '#ff4444',
+                                            color: '#fff',
+                                            paddingVertical: 5,
+                                            paddingHorizontal: 10,
+                                            borderRadius: 6,
+                                            fontSize: 14,
+                                        }}
+                                    >
+                                        Remove
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                    />
+                </View>
+            )}
+{/* ----------------------------------------------------FRIENDS SEARCH FEATURE----------------------------------------------------------- */}
+                <View>
                     <Text style={styles.title}> Search for Friends (Debug)</Text>
                     <TextInput
                         placeholder="Enter username"
@@ -126,21 +234,39 @@ const ProfileScreen = () => {
                     />
 
                     {matchedUsers.length > 0 && (
-                        <FlatList
-                            data={matchedUsers}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                                    <Image
-                                        source={item.profilePic ? { uri: item.profilePic } : require('@/assets/images/profileImages/profilePic1.jpg')}
-                                        style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
-                                    />
-                                    <Text style={{ color: '#fff', fontSize: 16 }}>@{item.username}</Text>
-                                </View>
-                            )}
+                       <FlatList
+                       data={matchedUsers}
+                       keyExtractor={(item) => item.id}
+                       renderItem={({ item }) => (
+                           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                               <Image
+                                   source={item.profilePic ? { uri: item.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                   style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                               />
+                               <Text style={{ color: '#fff', fontSize: 16, flex: 1 }}>@{item.username}</Text>
+           
+                               {/* ✅ Only show if not yourself AND not already a friend */}
+                               {item.id !== userId && !currentFriends.includes(item.id) && (
+                                   <Text
+                                       onPress={() => handleAddFriend(item)}
+                                       style={{
+                                           backgroundColor: '#6E1FD1',
+                                           color: '#fff',
+                                           paddingVertical: 5,
+                                           paddingHorizontal: 10,
+                                           borderRadius: 6,
+                                           fontSize: 14,
+                                       }}
+                                   >
+                                       Add Friend
+                                   </Text>
+                               )}
+                           </View>
+                       )}
                         />
                     )}
                 </View>
+{/* ----------------------------------------------------------------------------------------------------------------------------- */}
                 <Text style={styles.title}>Previous Ekkos</Text>
                 <FlatList
                     data={personalSongs}
