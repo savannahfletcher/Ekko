@@ -5,12 +5,15 @@ import { getFirestore, doc, getDoc, collection, getDocs } from "firebase/firesto
 import { auth, db } from "../../firebaseConfig"; 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useFonts } from 'expo-font';
+import { TextInput } from 'react-native';
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
     const [userId, setUserId] = useState(null);
     const [username, setUsername] = useState("Loading...");
     const [profilePic, setProfilePic] = useState(null);
+    const [searchInput, setSearchInput] = useState('');
+    const [matchedUsers, setMatchedUsers] = useState([]);
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -62,6 +65,30 @@ const ProfileScreen = () => {
             console.error("Error fetching personal songs:", error);
         }
     };
+    
+    const searchForFriend = async (input) => {
+        setSearchInput(input);
+        if (!input.trim()) {
+            setMatchedUsers([]);
+            return;
+        }
+    
+        try {
+            const usersRef = collection(db, "users");
+            const snapshot = await getDocs(usersRef);
+    
+            const matches = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(user =>
+                    user.username &&
+                    user.username.toLowerCase().includes(input.toLowerCase())
+                );
+    
+            setMatchedUsers(matches);
+        } catch (error) {
+            console.error("Error searching for friends:", error);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -73,7 +100,6 @@ const ProfileScreen = () => {
                 style={styles.loginBox}
             >
                 <View style={styles.profileHeader}>
-                    {/* Dynamically Load Profile Pic */}
                     <Image source={profilePic ? { uri: profilePic } : require('@/assets/images/profileImages/profilePic1.jpg')} style={styles.profilePic} />
                     <View style={styles.subHeader}>
                         <Text style={styles.userNameText}>{username}</Text>
@@ -81,6 +107,40 @@ const ProfileScreen = () => {
                     </View>
                 </View>
                 <Text style={styles.title}>Badges</Text>
+                <View style={{ marginTop: 30 }}>
+                    <Text style={styles.title}> Search for Friends (Debug)</Text>
+                    <TextInput
+                        placeholder="Enter username"
+                        placeholderTextColor="#aaa"
+                        value={searchInput}
+                        onChangeText={searchForFriend}
+                        style={{
+                            backgroundColor: '#1e1e1e',
+                            color: 'white',
+                            padding: 10,
+                            borderRadius: 8,
+                            borderColor: '#6E1FD1',
+                            borderWidth: 1,
+                            marginBottom: 10,
+                        }}
+                    />
+
+                    {matchedUsers.length > 0 && (
+                        <FlatList
+                            data={matchedUsers}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                    <Image
+                                        source={item.profilePic ? { uri: item.profilePic } : require('@/assets/images/profileImages/profilePic1.jpg')}
+                                        style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                                    />
+                                    <Text style={{ color: '#fff', fontSize: 16 }}>@{item.username}</Text>
+                                </View>
+                            )}
+                        />
+                    )}
+                </View>
                 <Text style={styles.title}>Previous Ekkos</Text>
                 <FlatList
                     data={personalSongs}
