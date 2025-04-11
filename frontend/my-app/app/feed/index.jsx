@@ -101,11 +101,21 @@ const FeedScreen = () => {
         try {
             const tempLikedPosts = new Set();
             const querySnapshot = await getDocs(collection(db, "feed"));
-            let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+           // let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+           let feedData = querySnapshot.docs
+            .map(doc => {
+                const data = doc.data();
+                if (!data.userId) {
+                console.warn("⚠️ Skipping post with missing userId:", doc.id);
+                return null;
+                }
+                return { id: doc.id, ...data };
+            })
+            .filter(Boolean); // Removes nulls
     
             // Only posts from friends + yourself
             if (showOnlyFriends) {
-                feedData = feedData.filter(post => friendIDs.includes(post.userId));
+                feedData = feedData.filter(post => post.userId && friendIDs.includes(post.userId));
             }
     
             // Sort by timestamp (descending)
@@ -142,12 +152,12 @@ const FeedScreen = () => {
                     songDetails,
                     profilePic,
                     username: postUsername,
-                    likeCount, // ✅ Add this
+                    likeCount,
                 };
             }));
     
             setPosts(postsWithDetails);
-            setLikedPosts(tempLikedPosts); // ✅ set state with liked post IDs
+            setLikedPosts(tempLikedPosts); 
         } catch (error) {
             console.error("Error fetching feed data:", error);
         }
@@ -185,8 +195,7 @@ const FeedScreen = () => {
                 newPosts[postIndex].likeCount = Math.max((newPosts[postIndex].likeCount || 1) - 1, 0);
             } else {
                 await setDoc(likeRef, {
-                    userID: userId,
-                    username: username,
+                    userID: userId
                 });
                 newLikedPosts.add(postId);
                 newPosts[postIndex].likeCount = (newPosts[postIndex].likeCount || 0) + 1;

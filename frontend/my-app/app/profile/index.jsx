@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, Image, ScrollView, TextInput } from "react-nati
 import { LinearGradient } from 'expo-linear-gradient';
 import { getDoc, getDocs, collection, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { TouchableOpacity, Modal } from "react-native";
 import { auth, db } from "../../firebaseConfig";
 import { useFonts } from 'expo-font';
+import { serverTimestamp } from 'firebase/firestore';
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
@@ -15,8 +17,9 @@ const ProfileScreen = () => {
     const [matchedUsers, setMatchedUsers] = useState([]);
     const [currentFriends, setCurrentFriends] = useState([]);
     const [friendsList, setFriendsList] = useState([]);
-    
-   
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [newUsername, setNewUsername] = useState("");
+    const [newProfilePic, setNewProfilePic] = useState("");
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -35,6 +38,23 @@ const ProfileScreen = () => {
         return () => unsubscribe();
     }, []);
 
+      const handleSaveProfileChanges = async () => {
+        if (!userId) return;
+      
+        let profilePicUrl = profilePic;
+      
+        try {
+          await setDoc(doc(db, "users", userId), {
+            username: newUsername,
+          }, { merge: true });
+      
+          setUsername(newUsername);
+          setEditModalVisible(false);
+        } catch (err) {
+          console.error("Error saving profile:", err);
+        }
+      };
+
     const fetchUserData = async (uid) => {
         try {
             const userDoc = await getDoc(doc(db, "users", uid));
@@ -52,7 +72,10 @@ const ProfileScreen = () => {
         try {
             const songsRef = collection(db, "users", uid, "personalSongs");
             const snapshot = await getDocs(songsRef);
-            const songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const songs = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds); // 🔥 sort newest to oldest
+    
             setPersonalSongs(songs);
         } catch (error) {
             console.error("Error fetching songs:", error);
@@ -149,9 +172,15 @@ const ProfileScreen = () => {
                         <Text style={styles.friendsText}>
                             {friendsList.length} friend{friendsList.length !== 1 ? 's' : ''}
                         </Text>
+                        <TouchableOpacity onPress={() => {
+                            setNewUsername(username);
+                            setNewProfilePic(profilePic || "");
+                            setEditModalVisible(true);
+                        }}>
+                        <Text style={styles.editBtn}>Edit Profile</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
-
                 <Text style={styles.title}>Badges</Text>
                 <Text style={styles.title}>Friends</Text>
                 {friendsList.map((friend) => (
@@ -202,9 +231,42 @@ const ProfileScreen = () => {
                         <Text style={styles.songTitle}>{song.title}</Text>
                         <Text style={styles.songArtist}>Artist: {song.artist}</Text>
                         <Text style={styles.songCaption}>{song.caption}</Text>
+                        {song.timestamp && (
+                        <Text style={styles.timestamp}>
+                            Posted on: {song.timestamp.toDate().toLocaleString()}
+                        </Text>
+                        )}
                     </View>
                 ))}
             </LinearGradient>
+            <Modal
+                visible={editModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setEditModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Edit Profile</Text>
+                        <Image
+                            source={newProfilePic ? { uri: newProfilePic } : require('@/assets/images/profileImages/image.png')}
+                            style={styles.modalPic}
+                        />
+                        <Text style={styles.userNameText}>Username</Text>
+                        <TextInput
+                            placeholder="New Username"
+                            placeholderTextColor="#aaa"
+                            value={newUsername}
+                            onChangeText={setNewUsername}
+                            style={styles.modalInput}
+                        />
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>Cancel</Text>
+                            <Text style={styles.saveBtn} onPress={handleSaveProfileChanges}>Save</Text>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </ScrollView>
     );
 };
@@ -302,6 +364,68 @@ const styles = StyleSheet.create({
     songCaption: {
         fontSize: 14,
         color: "#bbb",
+    },
+    timestamp: {
+        fontSize: 12,
+        color: '#aaa',
+        marginTop: 5,
+    },
+    editBtn: {
+        fontSize: 14,
+        color: '#A338F4',
+        marginTop: 5,
+        fontWeight: 'bold',
+    },
+    
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    
+    modalContent: {
+        backgroundColor: '#222',
+        padding: 20,
+        borderRadius: 12,
+        width: '100%',
+    },
+    
+    modalTitle: {
+        fontSize: 20,
+        color: '#fff',
+        fontWeight: 'bold',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    
+    modalPic: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignSelf: 'center',
+        marginBottom: 15,
+    },
+    
+    modalInput: {
+        backgroundColor: '#333',
+        color: 'white',
+        padding: 10,
+        borderRadius: 8,
+        marginBottom: 10,
+    },
+    cancelBtn: {
+        color: '#aaa',
+        fontSize: 16,
+        padding: 10,
+    },
+    
+    saveBtn: {
+        color: '#6E1FD1',
+        fontSize: 16,
+        padding: 10,
+        fontWeight: 'bold',
     },
 });
 
