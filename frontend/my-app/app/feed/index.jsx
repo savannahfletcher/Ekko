@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, TextInput} from "react-native";
 import { useFonts } from 'expo-font';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, doc, getDoc, setDoc, deleteDoc} from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 import { Modal, ScrollView } from "react-native";
+import { addDoc, serverTimestamp } from "firebase/firestore"; 
 import axios from "axios";
 
 import profilePic1 from '@/assets/images/profileImages/image.png';
@@ -30,6 +31,10 @@ const FeedScreen = () => {
     const [likedPosts, setLikedPosts] = useState(new Set());
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedLikes, setSelectedLikes] = useState([]);
+    const [selectedPostId, setSelectedPostId] = useState(null);
+    const [selectedComments, setSelectedComments] = useState([]);
+    const [activeTab, setActiveTab] = useState("likes"); // "likes" or "comments"
+    const [newComment, setNewComment] = useState("");
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -132,7 +137,11 @@ const FeedScreen = () => {
                 if (likedByUser) {
                     tempLikedPosts.add(post.id);
                 }
-            
+
+                 // 🔹 Get comment count
+                const commentsSnapshot = await getDocs(collection(db, "feed", post.id, "comments"));
+                const commentCount = commentsSnapshot.size;
+                        
                 let profilePic = null;
                 let postUsername = "Unknown User";
             
@@ -153,6 +162,7 @@ const FeedScreen = () => {
                     profilePic,
                     username: postUsername,
                     likeCount,
+                    commentCount,
                 };
             }));
     
@@ -207,6 +217,7 @@ const FeedScreen = () => {
             console.error("Error liking/unliking post:", error);
         }
     };
+
     const fetchLikers = async (postId) => {
         try {
             const likesRef = collection(db, "feed", postId, "likes");
@@ -218,11 +229,72 @@ const FeedScreen = () => {
                 return userDoc.exists() ? { id: userID, ...userDoc.data() } : null;
             }));
             setSelectedLikes(users.filter(Boolean));
+            setSelectedPostId(postId);
+            setActiveTab("likes"); // ← ADD THIS LINE
+            await fetchComments(postId); // ← ADD THIS LINE
             setModalVisible(true);
         } catch (error) {
             console.error("Error fetching likers:", error);
         }
     };
+
+    const fetchComments = async (postId) => {
+        try {
+            const commentsRef = collection(db, "feed", postId, "comments");
+            const snapshot = await getDocs(commentsRef);
+    
+            const comments = await Promise.all(snapshot.docs.map(async (docSnap) => {
+                const { userId, caption, timestamp } = docSnap.data();
+                const userRef = doc(db, "users", userId);
+                const userDoc = await getDoc(userRef);
+                const userData = userDoc.exists() ? userDoc.data() : {};
+                return {
+                    id: docSnap.id,
+                    caption,
+                    timestamp,
+                    userId,
+                    username: userData.username || "Unknown",
+                    profilePic: userData.profilePic || null,
+                };
+            }));
+    
+            setSelectedComments(comments);
+        } catch (error) {
+            console.error("Error fetching comments:", error);
+        }
+    };
+
+    const handlePostComment = async () => {
+        if (!userId || !newComment.trim() || !selectedPostId) return;
+    
+        try {
+            await addDoc(collection(db, "feed", selectedPostId, "comments"), {
+                caption: newComment.trim(),
+                userId,
+                timestamp: serverTimestamp(),
+            });
+            setNewComment("");
+            await fetchComments(selectedPostId); // Refresh comments
+
+             // ✅ Increment commentCount locally
+            setPosts(prevPosts =>
+                prevPosts.map(post =>
+                    post.id === selectedPostId
+                        ? { ...post, commentCount: (post.commentCount || 0) + 1 }
+                        : post
+                )
+            );
+        } catch (error) {
+            console.error("Error posting comment:", error);
+        }
+    };
+
+    const handleOpenComments = async (postId) => {
+        setSelectedPostId(postId);
+        await fetchComments(postId);
+        setActiveTab("comments");
+        setModalVisible(true);
+      };
 
     return (
         <View style={styles.container}>
@@ -304,24 +376,53 @@ const FeedScreen = () => {
 
                             <Text style={styles.captionText}>"{item.caption}"</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                                {/* Like toggle */}
                                 <TouchableOpacity onPress={() => handleLikePost(item.id)}>
                                     <Text style={{ color: likedPosts.has(item.id) ? '#A338F4' : '#ccc', fontWeight: 'bold' }}>
-                                        {likedPosts.has(item.id) ? "♥ Liked" : "♡ Like"}
+                                    {likedPosts.has(item.id) ? "♥ Liked" : "♡ Like"}
                                     </Text>
                                 </TouchableOpacity>
+
                                 <Text style={{ color: '#aaa', marginHorizontal: 6 }}>·</Text>
-                                <TouchableOpacity onPress={() => fetchLikers(item.id)}>
+
+                                {/* Open modal in Likes tab */}
+                                <TouchableOpacity
+                                    onPress={() => {
+                                    setSelectedPostId(item.id);
+                                    setActiveTab("likes");
+                                    fetchLikers(item.id);
+                                    setModalVisible(true);
+                                    }}
+                                >
                                     <Text style={{ color: '#aaa' }}>
-                                        {item.likeCount} like{item.likeCount !== 1 ? 's' : ''}
+                                    {item.likeCount} like{item.likeCount !== 1 ? 's' : ''}
                                     </Text>
                                 </TouchableOpacity>
-                            </View>
-                        </LinearGradient>
+
+                                <Text style={{ color: '#aaa', marginHorizontal: 6 }}>·</Text>
+
+                                {/* Open modal in Comments tab */}
+                                <TouchableOpacity
+                                    onPress={() => {
+                                    (async () => {
+                                        setSelectedPostId(item.id);
+                                        await fetchComments(item.id);
+                                        setActiveTab("comments");
+                                        setModalVisible(true);
+                                    })();
+                                    }}
+                                >
+                                    <Text style={{ color: '#aaa' }}>
+                                    {item.commentCount} Comment{item.likeCount !== 1 ? 's' : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                             </View>
+                            </LinearGradient>
 
                     );
                 }}
             />
-            <Modal
+        <Modal
             visible={modalVisible}
             animationType="slide"
             transparent={true}
@@ -329,9 +430,18 @@ const FeedScreen = () => {
         >
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 }}>
                 <View style={{ backgroundColor: '#222', padding: 20, borderRadius: 10, maxHeight: '80%' }}>
-                    <Text style={{ color: '#fff', fontSize: 20, marginBottom: 15 }}>Liked by</Text>
+                    {/* Tabs */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}>
+                        <TouchableOpacity onPress={() => setActiveTab("likes")} style={{ marginHorizontal: 10 }}>
+                            <Text style={{ color: activeTab === "likes" ? '#A338F4' : '#aaa', fontWeight: 'bold' }}>Likes</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setActiveTab("comments")} style={{ marginHorizontal: 10 }}>
+                            <Text style={{ color: activeTab === "comments" ? '#A338F4' : '#aaa', fontWeight: 'bold' }}>Comments</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     <ScrollView>
-                        {selectedLikes.map(user => (
+                        {activeTab === "likes" && selectedLikes.map(user => (
                             <View key={user.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                                 <Image
                                     source={user.profilePic ? { uri: user.profilePic } : require('@/assets/images/profileImages/image.png')}
@@ -340,7 +450,44 @@ const FeedScreen = () => {
                                 <Text style={{ color: '#fff', fontSize: 16 }}>@{user.username}</Text>
                             </View>
                         ))}
+
+                        {activeTab === "comments" && selectedComments.map(comment => (
+                            <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                                <Image
+                                    source={comment.profilePic ? { uri: comment.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                                />
+                                <View>
+                                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>@{comment.username}</Text>
+                                    <Text style={{ color: '#ccc' }}>{comment.caption}</Text>
+                                </View>
+                            </View>
+                        ))}
                     </ScrollView>
+
+                    {activeTab === "comments" && (
+                        <View style={{ flexDirection: 'row', marginTop: 10, alignItems: 'center' }}>
+                            <TextInput
+                                value={newComment}
+                                onChangeText={setNewComment}
+                                placeholder="Add a comment..."
+                                placeholderTextColor="#aaa"
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#333',
+                                    color: 'white',
+                                    borderRadius: 6,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    marginRight: 10,
+                                }}
+                            />
+                            <TouchableOpacity onPress={handlePostComment}>
+                                <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>Post</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
                     <TouchableOpacity onPress={() => setModalVisible(false)} style={{ marginTop: 20 }}>
                         <Text style={{ color: '#A338F4', textAlign: 'center', fontSize: 16 }}>Close</Text>
                     </TouchableOpacity>
@@ -350,6 +497,8 @@ const FeedScreen = () => {
         </View>
     );
 };
+
+
 // 🔹 Styles
 const styles = StyleSheet.create({
     container: {
