@@ -204,7 +204,6 @@ const Register = () => {
       <View style={{ padding: 10}}></View>
 
       <Button title="Optional: Select Profile Picture" onPress={pickImage} color='#4221D6'/>
-      <Icon name="image" size={30} color="#000" />
       
       {/* the variable, profilePic holds the user selected image  */}
       {profilePic && <Image source={{ uri: profilePic }} style={{ width: 100, height: 100, marginTop: 10 }} />}
