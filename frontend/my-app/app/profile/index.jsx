@@ -11,7 +11,7 @@ import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image 
 import { serverTimestamp } from 'firebase/firestore';
 import { getAuth, signOut } from "firebase/auth";
 import { useRouter } from 'expo-router';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 
@@ -186,25 +186,47 @@ const ProfileScreen = () => {
         }
     };
 
+    // const handleLogout = async () => {
+    //     try {
+    //       const auth = getAuth();
+    //       await signOut(auth);
+    //       console.log("✅ Logged out");
+
+    //       setUsername('');
+    //       setUserId('');
+    //       setProfilePic('');
+
+    //       router.replace('/'); // 👈 Go to index.jsx
+    //       console.log("username: ", username); 
+    //       console.log("userID: ", userId); 
+    //     } 
+    //     catch (error) {
+    //       console.error("❌ Error logging out:", error);
+    //     }
+    //   };
     const handleLogout = async () => {
         try {
-          const auth = getAuth();
-          await signOut(auth);
-          console.log("✅ Logged out");
-
+          const authInstance = getAuth();
+          await signOut(authInstance);
+      
+          // Clear local states
+          setUserId(null);
           setUsername('');
-          setUserId('');
-          setProfilePic('');
-
-          router.replace('/'); // 👈 Go to index.jsx
-          console.log("username: ", username); 
-          console.log("userID: ", userId); 
-        } 
-        catch (error) {
+          setProfilePic(null);
+          setFriendsList([]);
+          setCurrentFriends([]);
+          setSearchInput('');
+          setMatchedUsers([]);
+          setPersonalSongs([]);
+      
+          router.replace('/'); // or go to login screen
+      
+          console.log("✅ Logged out and cache cleared");
+          await AsyncStorage.clear();
+        } catch (error) {
           console.error("❌ Error logging out:", error);
         }
       };
-
 
       
 
@@ -295,10 +317,17 @@ const ProfileScreen = () => {
                         )}
                     </View>
                 ))}
+                 <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                <LinearGradient
+                    colors={['#ff4e50', '#f9d423']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.logoutGradient}
+                >
+                    <Text style={styles.logoutText}>Log Out</Text>
+                </LinearGradient>
+                </TouchableOpacity>
             </LinearGradient>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-                <Text style={styles.logoutText}>Log Out</Text>
-            </TouchableOpacity>
             <Modal
                 visible={editModalVisible}
                 animationType="slide"
@@ -491,6 +520,25 @@ const styles = StyleSheet.create({
         padding: 10,
         fontWeight: 'bold',
     },
+    logoutButton: {
+        marginTop: 20,
+        alignSelf: 'center',
+        borderRadius: 30,
+        overflow: 'hidden',
+      },
+      
+      logoutGradient: {
+        paddingVertical: 12,
+        paddingHorizontal: 40,
+        borderRadius: 30,
+      },
+      
+      logoutText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center',
+      },
 });
 
 export default ProfileScreen;
