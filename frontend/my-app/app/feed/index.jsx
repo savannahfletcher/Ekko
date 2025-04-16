@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, TextInput} from "react-native";
 import { useFonts } from 'expo-font';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import { collection, getDocs, doc, getDoc, setDoc, deleteDoc} from "firebase/fir
 import { auth, db } from "../../firebaseConfig";
 import { Modal, ScrollView } from "react-native";
 import { addDoc, serverTimestamp } from "firebase/firestore"; 
+import { useFocusEffect } from '@react-navigation/native';
 import axios from "axios";
 
 import profilePic1 from '@/assets/images/profileImages/image.png';
@@ -35,6 +36,8 @@ const FeedScreen = () => {
     const [selectedComments, setSelectedComments] = useState([]);
     const [activeTab, setActiveTab] = useState("likes"); // "likes" or "comments"
     const [newComment, setNewComment] = useState("");
+    const [personalSongs, setPersonalSongs] = useState([]);
+    const [hasPostedToday, setHasPostedToday] = useState(false);
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -65,6 +68,7 @@ const FeedScreen = () => {
             if (user) {
                 setUserId(user.uid);
                 setUserEmail(user.email);
+                fetchPersonalSongs(user.uid);
 
                 try {
                     const userRef = doc(db, "users", user.uid);
@@ -100,6 +104,59 @@ const FeedScreen = () => {
             fetchFeedWithSongs();
         }
     }, [accessToken, friendIDs, showOnlyFriends]);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (userId) {
+                fetchPersonalSongs(userId);
+            }
+        }, [userId])
+    );
+
+    // Fetch user's songs to see if user has posted today already
+    const fetchPersonalSongs = async (uid) => {
+        try {
+            const songsRef = collection(db, "users", uid, "personalSongs");
+            const snapshot = await getDocs(songsRef);
+            const songs = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds); // sort newest to oldest
+    
+            setPersonalSongs(songs);
+
+            // Check if the latest song was posted today
+            const latestSong = songs[0];
+            let hasPostedToday = false;
+
+            if (latestSong?.timestamp) {
+                const today = new Date();
+                const postDate = latestSong.timestamp.toDate();
+
+                hasPostedToday =
+                    postDate.getDate() === today.getDate() &&
+                    postDate.getMonth() === today.getMonth() &&
+                    postDate.getFullYear() === today.getFullYear();
+            }
+
+            setHasPostedToday(hasPostedToday);
+            console.log("Has posted today:", hasPostedToday);
+
+            // const today = new Date();
+            // const hasPostedToday = songs.some(song => {
+            //     if (!song.timestamp) return false;
+            //     const postDate = song.timestamp.toDate(); // Firestore Timestamp to JS Date
+            //     return (
+            //         postDate.getDate() === today.getDate() &&
+            //         postDate.getMonth() === today.getMonth() &&
+            //         postDate.getFullYear() === today.getFullYear()
+            //     );
+            // });
+            // console.log("Has posted today:", hasPostedToday);
+            // setHasPostedToday(hasPostedToday);
+        } catch (error) {
+            console.error("Error fetching user's songs:", error);
+        }
+    };
 
     const fetchFeedWithSongs = async () => {
         if (!userId) return; 
@@ -332,9 +389,16 @@ const FeedScreen = () => {
                 keyExtractor={(item) => item.id}
                 ListHeaderComponent={
                     <>
-                        {(username || userEmail) && (
-                            <Text style={styles.welcomeText}>Welcome, @{username || userEmail}!</Text>
-                        )}
+                        {hasPostedToday ? (
+                        <Text style={styles.welcomeText}>
+                            You've already posted your Ekko today!
+                        </Text>
+                    ) : (
+                        <Text style={styles.welcomeText}>
+                            You haven’t posted today...
+                        </Text>
+                    )}
+                    {!hasPostedToday && (
                         <TouchableOpacity onPress={routeToPost} style={styles.shadowContainer}>
                             <View style={styles.buttonContainer}>
                                 <LinearGradient
@@ -347,7 +411,8 @@ const FeedScreen = () => {
                                 </LinearGradient>
                             </View>
                         </TouchableOpacity>
-                        <Text style={styles.postUsername}>See what your friends are listening to!</Text>
+                    )}
+                        <Text style={styles.subWelcomeText}>See what your friends are listening to!</Text>
                     </>
                 }
                 renderItem={({ item, index }) => {
@@ -518,6 +583,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontFamily: 'MontserratAlternates-ExtraBold',
         paddingBottom: 10,
+    },
+    subWelcomeText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#A9A9A9',
+        paddingLeft: 5,
+        paddingBottom: 5,
     },
     shadowContainer: {
         alignSelf: 'center',
