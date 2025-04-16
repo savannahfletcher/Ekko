@@ -11,7 +11,7 @@
     "test": "jest --watchAll",
     "lint": "expo lint",
     "predeploy": "expo export --platform web && touch dist/.nojekyll",
-    "deploy": "gh-pages --nojekyll -d dist -b gh-pages"
+    "deploy": "gh-pages --nojekyll -d dist"
   },
   "jest": {
     "preset": "jest-expo"
