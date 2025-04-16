@@ -1,12 +1,9 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Image, TouchableOpacity } from "react-native";
 import Modal from "react-native-modal";
-import {useRouter} from 'expo-router';
 
 const SelectPopup = ({ isVisible, onClose, selectedSong, handlePost }) => {
   const [caption, setCaption] = useState("");
-
-  const router = useRouter();
 
   if (!selectedSong) return null;
 
@@ -27,7 +24,7 @@ const SelectPopup = ({ isVisible, onClose, selectedSong, handlePost }) => {
 
         <TouchableOpacity style={styles.postButton} onPress={() => {
             handlePost(selectedSong, caption)
-            router.push('./feed')
+            onClose();
           }}>
           <Text style={styles.postButtonText}>Post</Text>
         </TouchableOpacity>
