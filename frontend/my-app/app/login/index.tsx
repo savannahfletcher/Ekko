@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { View, TextInput, Button, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, TextInput, ScrollView, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { auth } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import {useRouter} from 'expo-router';
@@ -88,7 +88,7 @@ const SignInScreen = () => {
   };
 
   return (
-    <View style = {styles.container}>
+    <ScrollView style={styles.container}>
       <Text style = {styles.ekkoText}> Ekko </Text>
       <Text style = {styles.topText}>
         Sign in to post your Ekko!
@@ -129,7 +129,7 @@ const SignInScreen = () => {
         {message ? <Text style={{ color: 'green', marginTop: 10 , padding: 5}}>{message}</Text> : null}
         {error ? <Text style={{ color: 'red', marginTop: 10 , padding: 5}}>{error}</Text> : null}
       </LinearGradient>
-    </View>
+    </ScrollView>
   );
 }
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { View, TextInput, Button, Text, StyleSheet, Image , TouchableOpacity } from 'react-native';
+import { View, TextInput, ScrollView, Text, StyleSheet, Image , TouchableOpacity } from 'react-native';
 import { auth,storage, db  } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -165,7 +165,7 @@ const Register = () => {
   };
 
   return (
-    <View style = {styles.container}>
+    <ScrollView style={styles.container}>
       <Text style = {styles.ekkoText}> Ekko </Text>
       <Text style = {styles.topText}>
         Welcome to Ekko! Let's create your account!
@@ -224,7 +224,7 @@ const Register = () => {
       </TouchableOpacity>
 
       </LinearGradient>
-    </View>
+    </ScrollView>
   );
 }
 
