@@ -8,6 +8,7 @@ import { collection, getDocs, doc, getDoc, setDoc, deleteDoc} from "firebase/fir
 import { auth, db } from "../../firebaseConfig";
 import { Modal, ScrollView } from "react-native";
 import { addDoc, serverTimestamp } from "firebase/firestore"; 
+import { Audio } from 'expo-av';
 import axios from "axios";
 
 import profilePic1 from '@/assets/images/profileImages/image.png';
@@ -35,6 +36,9 @@ const FeedScreen = () => {
     const [selectedComments, setSelectedComments] = useState([]);
     const [activeTab, setActiveTab] = useState("likes"); // "likes" or "comments"
     const [newComment, setNewComment] = useState("");
+    const [sound, setSound] = useState(null);
+
+    const testPreviewUrl = "https://p.scdn.co/mp3-preview/5330c89d0c29a15b02b1d83fa7ec82633e0de2f7?cid=774b29d4f13844c495f206cafdad9c86";
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -294,7 +298,30 @@ const FeedScreen = () => {
         await fetchComments(postId);
         setActiveTab("comments");
         setModalVisible(true);
+        if (sound) {
+            await sound.unloadAsync();
+            setSound(null);
+        }
       };
+
+    const playPreview = async (previewUrl) => {
+        if (!previewUrl) return;
+      
+        try {
+          if (sound) {
+            await sound.unloadAsync(); // stop current
+            setSound(null);
+          }
+      
+          const { sound: newSound } = await Audio.Sound.createAsync(
+            { uri: previewUrl },
+            { shouldPlay: true }
+          );
+          setSound(newSound);
+        } catch (err) {
+          console.log('Error playing preview:', err);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -374,6 +401,22 @@ const FeedScreen = () => {
                                 <Text style={styles.loadingText}>Loading song details...</Text>
                             )}
 
+                            {item.songDetails?.preview_url ? (
+                                <TouchableOpacity
+                                    onPress={() => playPreview(item.songDetails.preview_url)}
+                                    style={{ marginTop: 8 }}
+                                >
+                                    <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>▶ Play Preview</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <Text style={{ color: '#aaa', marginTop: 8 }}>No preview available</Text>
+                            )}
+                            <TouchableOpacity
+                                onPress={() => playPreview(testPreviewUrl)}
+                                style={{ marginTop: 20, alignSelf: 'center' }}
+                                >
+                                <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>▶ Test Preview (Blinding Lights)</Text>
+                            </TouchableOpacity>
                             <Text style={styles.captionText}>"{item.caption}"</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
                                 {/* Like toggle */}
