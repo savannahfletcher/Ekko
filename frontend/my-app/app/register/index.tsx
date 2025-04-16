@@ -210,7 +210,6 @@ const Register = () => {
       {/* the variable, profilePic holds the user selected image  */}
       {profilePic && <Image source={{ uri: profilePic }} style={{ width: 100, height: 100, marginTop: 10 }} />}
       <View style={{ padding: 20}}></View>
-      {/* <Button title="SIGNUP" onPress={handleSignup} color='#4221D6'/> */}
       <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
           <Text style={styles.loginButtonText}>SIGNUP</Text>
       </TouchableOpacity>
@@ -219,10 +218,10 @@ const Register = () => {
       {error ? <Text style={{ color: 'red', marginTop: 10 }}>{error}</Text> : null}
 
       <TouchableOpacity onPress={handleBackToLogin}>
-            <Text style={styles.backToLoginText}>
-              Already have an account? Login here!
-            </Text>
-        </TouchableOpacity>
+          <Text style={styles.backToLoginText}>
+            Already have an account? Login here!
+          </Text>
+      </TouchableOpacity>
 
       </LinearGradient>
     </View>
