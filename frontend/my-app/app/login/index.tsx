@@ -67,7 +67,6 @@ const SignInScreen = () => {
         const q = query(collection(db, "users"), where("username", "==", email));
         
         const querySnapshot = await getDocs(q);
-        console.log("going here but breaks here, this message does not print in the console");
   
         if (querySnapshot.empty) {
           setError("⚠️ Username not found. Please try again or sign up.");

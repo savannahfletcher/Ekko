@@ -186,24 +186,6 @@ const ProfileScreen = () => {
         }
     };
 
-    // const handleLogout = async () => {
-    //     try {
-    //       const auth = getAuth();
-    //       await signOut(auth);
-    //       console.log("✅ Logged out");
-
-    //       setUsername('');
-    //       setUserId('');
-    //       setProfilePic('');
-
-    //       router.replace('/'); // 👈 Go to index.jsx
-    //       console.log("username: ", username); 
-    //       console.log("userID: ", userId); 
-    //     } 
-    //     catch (error) {
-    //       console.error("❌ Error logging out:", error);
-    //     }
-    //   };
     const handleLogout = async () => {
         try {
           const authInstance = getAuth();
