@@ -55,14 +55,19 @@ const SignInScreen = () => {
   const handleLogin = async () => {
     setError('');
     setMessage('');
+    
   
     try {
       let loginEmail = email;
+      console.log("Attempting to log in with:", loginEmail);
   
       // Check if it's a username (doesn't contain "@")
       if (!email.includes("@")) {
+        console.log("going here");
         const q = query(collection(db, "users"), where("username", "==", email));
+        
         const querySnapshot = await getDocs(q);
+        console.log("going here but breaks here, this message does not print in the console");
   
         if (querySnapshot.empty) {
           setError("⚠️ Username not found. Please try again or sign up.");
@@ -71,12 +76,18 @@ const SignInScreen = () => {
   
         // Assume usernames are unique, grab the first match
         loginEmail = querySnapshot.docs[0].data().email;
+        console.log("Attempting to log INSIDE with:", loginEmail);
       }
   
       // Use the resolved loginEmail to sign in
+
       await signInWithEmailAndPassword(auth, loginEmail, password);
       setMessage('✅ Login successful!');
       router.replace('./feed');
+
+      setEmail('');
+      setPassword('');
+      
     } catch (err: any) {
       setError(getErrorMessage(err));
     }

@@ -9,6 +9,11 @@ import { useFonts } from 'expo-font';
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import { serverTimestamp } from 'firebase/firestore';
+import { getAuth, signOut } from "firebase/auth";
+import { useRouter } from 'expo-router';
+
+
+
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
@@ -22,6 +27,7 @@ const ProfileScreen = () => {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [newUsername, setNewUsername] = useState("");
     const [newProfilePic, setNewProfilePic] = useState("");
+    const router = useRouter(); 
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -180,6 +186,28 @@ const ProfileScreen = () => {
         }
     };
 
+    const handleLogout = async () => {
+        try {
+          const auth = getAuth();
+          await signOut(auth);
+          console.log("✅ Logged out");
+
+          setUsername('');
+          setUserId('');
+          setProfilePic('');
+
+          router.replace('/'); // 👈 Go to index.jsx
+          console.log("username: ", username); 
+          console.log("userID: ", userId); 
+        } 
+        catch (error) {
+          console.error("❌ Error logging out:", error);
+        }
+      };
+
+
+      
+
     if (!fontsLoaded) return <Text>Loading fonts...</Text>;
 
     return (
@@ -268,6 +296,9 @@ const ProfileScreen = () => {
                     </View>
                 ))}
             </LinearGradient>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+                <Text style={styles.logoutText}>Log Out</Text>
+            </TouchableOpacity>
             <Modal
                 visible={editModalVisible}
                 animationType="slide"
@@ -302,7 +333,10 @@ const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#2f2f2f" },
+    container: { 
+        flex: 1, 
+        backgroundColor: "#2f2f2f", 
+        padding: 20, },
     ekkoText: {
         fontSize: 36,
         color: '#fff',
