@@ -180,30 +180,41 @@ const ProfileScreen = () => {
         try {
             await deleteDoc(doc(db, "users", userId, "friends", friendId));
             await deleteDoc(doc(db, "users", friendId, "friends", userId));
-            await fetchCurrentFriends(userId);
-        } catch (error) {
+        
+            // 🔁 Refetch updated friends
+            const ref = collection(db, "users", userId, "friends");
+            const snapshot = await getDocs(ref);
+            const updatedFriends = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+            setCurrentFriends(updatedFriends.map(f => f.userID));
+            setFriendsList(updatedFriends);
+            console.log("✅ Friend removed and state refreshed");
+          } catch (error) {
             console.error("Error removing friend:", error);
-        }
+          }
     };
+        const handleDeleteEkko = async (postId) => {
+            try {
+              if (!userId) return;
+          
+              // Delete from personalSongs
+              await deleteDoc(doc(db, "users", userId, "personalSongs", postId));
+              console.log("✅ Deleted from personalSongs");
+          
+              // Delete from feed
+              await deleteDoc(doc(db, "feed", postId));
+              console.log("✅ Deleted from feed");
 
-    // const handleLogout = async () => {
-    //     try {
-    //       const auth = getAuth();
-    //       await signOut(auth);
-    //       console.log("✅ Logged out");
-
-    //       setUsername('');
-    //       setUserId('');
-    //       setProfilePic('');
-
-    //       router.replace('/'); // 👈 Go to index.jsx
-    //       console.log("username: ", username); 
-    //       console.log("userID: ", userId); 
-    //     } 
-    //     catch (error) {
-    //       console.error("❌ Error logging out:", error);
-    //     }
-    //   };
+               // Refresh list from Firestore
+                await fetchPersonalSongs(userId);
+          
+              // Update UI
+              setPersonalSongs(prev => prev.filter(song => song.id !== postId));
+              await fetchPersonalSongs(userId);
+            } catch (error) {
+              console.error("❌ Error deleting ekko:", error);
+            }
+        };
     const handleLogout = async () => {
         try {
           const authInstance = getAuth();
@@ -315,6 +326,12 @@ const ProfileScreen = () => {
                             Posted on: {song.timestamp.toDate().toLocaleString()}
                         </Text>
                         )}
+                        <TouchableOpacity
+                    onPress={() => handleDeleteEkko(song.id, song.feedId)} // Add `feedId` when saving to Firestore
+                    style={styles.deleteButton}
+                    >
+                    <Text style={styles.deleteButtonText}>Delete Ekko</Text>
+                    </TouchableOpacity>
                     </View>
                 ))}
                  <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
@@ -328,6 +345,7 @@ const ProfileScreen = () => {
                 </LinearGradient>
                 </TouchableOpacity>
             </LinearGradient>
+
             <Modal
                 visible={editModalVisible}
                 animationType="slide"
@@ -538,6 +556,18 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         textAlign: 'center',
+      },
+      deleteButton: {
+        backgroundColor: '#ff4444',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        marginTop: 10,
+        alignSelf: 'flex-start',
+      },
+      deleteButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
       },
 });
 
