@@ -21,7 +21,10 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "build": {
+        "publicPath": "/Ekko/"
+      }
     },
     "plugins": [
       "expo-router",
@@ -36,8 +39,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "baseUrl": "/Ekko"
+      "typedRoutes": true
     }
   }
 }
