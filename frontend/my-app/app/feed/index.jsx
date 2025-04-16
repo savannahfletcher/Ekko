@@ -110,6 +110,63 @@ const FeedScreen = () => {
         }
     }, [accessToken, friendIDs, showOnlyFriends]);
 
+    useFocusEffect(
+        useCallback(() => {
+            if (userId) {
+                fetchPersonalSongs(userId);
+            }
+        }, [userId])
+    );
+
+    // Fetch user's songs to see if user has posted today already
+    const fetchPersonalSongs = async (uid) => {
+        try {
+            const songsRef = collection(db, "users", uid, "personalSongs");
+            const snapshot = await getDocs(songsRef);
+            const songs = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds); // sort newest to oldest
+    
+            setPersonalSongs(songs);
+
+            // Check if the latest song was posted today
+            const latestSong = songs[0];
+            let hasPostedToday = false;
+
+            if (latestSong?.timestamp) {
+                const today = new Date();
+                const postDate = latestSong.timestamp.toDate();
+
+                hasPostedToday =
+                    postDate.getDate() === today.getDate() &&
+                    postDate.getMonth() === today.getMonth() &&
+                    postDate.getFullYear() === today.getFullYear();
+            }
+
+            setHasPostedToday(hasPostedToday);
+            console.log("Has posted today:", hasPostedToday);
+
+            // const today = new Date();
+            // const hasPostedToday = songs.some(song => {
+            //     if (!song.timestamp) return false;
+            //     const postDate = song.timestamp.toDate(); // Firestore Timestamp to JS Date
+            //     return (
+            //         postDate.getDate() === today.getDate() &&
+            //         postDate.getMonth() === today.getMonth() &&
+            //         postDate.getFullYear() === today.getFullYear()
+            //     );
+            // });
+            // console.log("Has posted today:", hasPostedToday);
+            // setHasPostedToday(hasPostedToday);
+        } catch (error) {
+            console.error("Error fetching user's songs:", error);
+        }
+    };
+
+    useEffect(() => {
+        setPosts(allPosts.slice(0, visibleCount));
+    }, [visibleCount, allPosts]);
+
     const fetchFeedWithSongs = async () => {
         if (!userId) return; 
         try {
