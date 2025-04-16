@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity} from "react-native";
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, TextInput} from "react-native";
 import { useFonts } from 'expo-font';
- import {useRouter} from 'expo-router';
-import { LinearGradient } from "expo-linear-gradient"; 
+import { useRouter } from 'expo-router';
+import { LinearGradient } from "expo-linear-gradient";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore"; 
-import { auth, db } from "../../firebaseConfig"; 
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc} from "firebase/firestore";
+import { auth, db } from "../../firebaseConfig";
+import { Modal, ScrollView } from "react-native";
+import { addDoc, serverTimestamp } from "firebase/firestore"; 
 import axios from "axios";
 
-// Default profile pictures for testing
 import profilePic1 from '@/assets/images/profileImages/image.png';
 
 const defaultProfilePics = [profilePic1];
@@ -20,100 +21,161 @@ const SPOTIFY_CLIENT_SECRET = tokens.SPOTIFY_CLIENT_SECRET;
 
 const FeedScreen = () => {
     const router = useRouter();
+    const [userId, setUserId] = useState(null);
     const [userEmail, setUserEmail] = useState(null);
     const [username, setUsername] = useState(null);
-    const [posts, setPosts] = useState([]); 
+    const [friendIDs, setFriendIDs] = useState([]);
+    const [posts, setPosts] = useState([]);
     const [accessToken, setAccessToken] = useState("");
+    const [showOnlyFriends, setShowOnlyFriends] = useState(true);
+    const [likedPosts, setLikedPosts] = useState(new Set());
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedLikes, setSelectedLikes] = useState([]);
+    const [selectedPostId, setSelectedPostId] = useState(null);
+    const [selectedComments, setSelectedComments] = useState([]);
+    const [activeTab, setActiveTab] = useState("likes"); // "likes" or "comments"
+    const [newComment, setNewComment] = useState("");
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
     });
 
-    if (!fontsLoaded) {
-    return <Text>Loading fonts...</Text>; // Show a loading screen while the font is loading
-    }
+    if (!fontsLoaded) return <Text>Loading fonts...</Text>;
 
-    // Routes user to the search/post page
-    const routeToPost = () => {
-        router.replace('./post');
-    };
+    const routeToPost = () => router.replace('./post');
 
-    // 🔹 Fetch Spotify Access Token (valid for 1 hour)
     const fetchSpotifyAccessToken = async () => {
         try {
-            console.log("Fetching Spotify Access Token...");
-            const response = await axios.post(SPOTIFY_TOKEN_ENDPOINT, 
+            const response = await axios.post(SPOTIFY_TOKEN_ENDPOINT,
                 new URLSearchParams({
                     grant_type: "client_credentials",
                     client_id: SPOTIFY_CLIENT_ID,
                     client_secret: SPOTIFY_CLIENT_SECRET,
-                }), 
+                }),
                 { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
             );
             setAccessToken(response.data.access_token);
-            console.log("Spotify Access Token Set!");
         } catch (error) {
             console.error("Error fetching Spotify token:", error.response?.data || error.message);
         }
     };
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                setUserId(user.uid);
+                setUserEmail(user.email);
+
+                try {
+                    const userRef = doc(db, "users", user.uid);
+                    const userDoc = await getDoc(userRef);
+                    if (userDoc.exists()) {
+                        setUsername(userDoc.data().username);
+                    }
+
+                    const friendsRef = collection(db, "users", user.uid, "friends");
+                    const snapshot = await getDocs(friendsRef);
+                    const friendList = snapshot.docs.map(doc => doc.id);
+
+                    setFriendIDs([...friendList, user.uid]); // ✅ include self
+                } catch (error) {
+                    console.error("Error fetching user/friends:", error);
+                }
+            } else {
+                setUserId(null);
+                setUserEmail(null);
+                setFriendIDs([]);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        fetchSpotifyAccessToken();
+    }, []);
+
+    useEffect(() => {
+        if (accessToken && friendIDs.length > 0) {
+            fetchFeedWithSongs();
+        }
+    }, [accessToken, friendIDs, showOnlyFriends]);
+
     const fetchFeedWithSongs = async () => {
+        if (!userId) return; 
         try {
-            console.log("Fetching posts from Firestore...");
+            const tempLikedPosts = new Set();
             const querySnapshot = await getDocs(collection(db, "feed"));
-            let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+           // let feedData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+           let feedData = querySnapshot.docs
+            .map(doc => {
+                const data = doc.data();
+                if (!data.userId) {
+                console.warn("⚠️ Skipping post with missing userId:", doc.id);
+                return null;
+                }
+                return { id: doc.id, ...data };
+            })
+            .filter(Boolean); // Removes nulls
     
-            console.log(`Found ${feedData.length} posts in Firestore.`);
-            if (!feedData.length) return;
+            // Only posts from friends + yourself
+            if (showOnlyFriends) {
+                feedData = feedData.filter(post => post.userId && friendIDs.includes(post.userId));
+            }
     
-            // Sort by timestamp
+            // Sort by timestamp (descending)
             feedData.sort((a, b) => b.timestamp - a.timestamp);
-    
+          
+            // const tempLikedPosts = new Set(); // ✅ declare this here
             const postsWithDetails = await Promise.all(feedData.map(async (post) => {
                 const songDetails = await fetchSongDetails(post.songId);
-    
+            
+                // 🔹 Get likes
+                const likesSnapshot = await getDocs(collection(db, "feed", post.id, "likes"));
+                const likeCount = likesSnapshot.size; // ✅ count of likes
+                const likedByUser = likesSnapshot.docs.find(doc => doc.id === userId);
+                if (likedByUser) {
+                    tempLikedPosts.add(post.id);
+                }
+
+                 // 🔹 Get comment count
+                const commentsSnapshot = await getDocs(collection(db, "feed", post.id, "comments"));
+                const commentCount = commentsSnapshot.size;
+                        
                 let profilePic = null;
                 let postUsername = "Unknown User";
-    
-                const userId = post.userId;
-                if (!userId) {
-                    console.warn(`Post ${post.id} has no userId.`);
-                    return { ...post, songDetails, profilePic, username: postUsername };
-                }
-    
+            
                 try {
-                    const userRef = doc(db, "users", userId);
-                    const userSnap = await getDoc(userRef);
-    
+                    const userSnap = await getDoc(doc(db, "users", post.userId));
                     if (userSnap.exists()) {
                         const userData = userSnap.data();
                         profilePic = userData.profilePic || null;
                         postUsername = userData.username || "Unknown User";
-                    } else {
-                        console.warn(`User document not found for userId: ${userId}`);
                     }
                 } catch (error) {
-                    console.error(`Error getting user data for userId: ${userId}`, error);
+                    console.error(`Error getting user data for ${post.userId}:`, error);
                 }
-    
+            
                 return {
                     ...post,
                     songDetails,
                     profilePic,
                     username: postUsername,
+                    likeCount,
+                    commentCount,
                 };
             }));
     
             setPosts(postsWithDetails);
-            console.log("Posts successfully updated with user data.");
+            setLikedPosts(tempLikedPosts); 
         } catch (error) {
             console.error("Error fetching feed data:", error);
         }
     };
-    // 🔹 Fetch song details from Spotify API
+
     const fetchSongDetails = async (songId) => {
         if (!accessToken) return null;
         try {
-            console.log(`Fetching details for song ID: ${songId}`);
             const response = await axios.get(`https://api.spotify.com/v1/tracks/${songId}`, {
                 headers: { Authorization: `Bearer ${accessToken}` },
             });
@@ -124,74 +186,172 @@ const FeedScreen = () => {
         }
     };
 
-    // 🔹 Fetch username and email when user logs in
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                setUserEmail(user.email);
-                try {
-                    const userRef = doc(db, "users", user.uid);
-                    const userDoc = await getDoc(userRef);
-                    if (userDoc.exists()) {
-                        setUsername(userDoc.data().username);
-                    }
-                } catch (error) {
-                    console.error("Error fetching username:", error);
-                }
+    const handleLikePost = async (postId) => {
+        if (!userId || !username) return;
+    
+        const likeRef = doc(db, "feed", postId, "likes", userId);
+        const alreadyLiked = likedPosts.has(postId);
+    
+        try {
+            let newLikedPosts = new Set(likedPosts);
+            let newPosts = [...posts];
+    
+            const postIndex = newPosts.findIndex(p => p.id === postId);
+            if (postIndex === -1) return;
+    
+            if (alreadyLiked) {
+                await deleteDoc(likeRef);
+                newLikedPosts.delete(postId);
+                newPosts[postIndex].likeCount = Math.max((newPosts[postIndex].likeCount || 1) - 1, 0);
             } else {
-                setUserEmail(null);
-                setUsername(null);
+                await setDoc(likeRef, {
+                    userID: userId
+                });
+                newLikedPosts.add(postId);
+                newPosts[postIndex].likeCount = (newPosts[postIndex].likeCount || 0) + 1;
             }
-        });
-        return () => unsubscribe();
-    }, []);
-
-    // 🔹 Fetch Spotify Token First, Then Fetch Feed Data
-    useEffect(() => {
-        const fetchData = async () => {
-            await fetchSpotifyAccessToken();
-        };
-        fetchData();
-    }, []);
-
-    useEffect(() => {
-        if (accessToken) {
-            fetchFeedWithSongs();
+    
+            setLikedPosts(newLikedPosts);
+            setPosts(newPosts);
+        } catch (error) {
+            console.error("Error liking/unliking post:", error);
         }
-    }, [accessToken]);
+    };
+
+    const fetchLikers = async (postId) => {
+        try {
+            const likesRef = collection(db, "feed", postId, "likes");
+            const snapshot = await getDocs(likesRef);
+            const users = await Promise.all(snapshot.docs.map(async (docSnap) => {
+                const { userID } = docSnap.data();
+                const userRef = doc(db, "users", userID);
+                const userDoc = await getDoc(userRef);
+                return userDoc.exists() ? { id: userID, ...userDoc.data() } : null;
+            }));
+            setSelectedLikes(users.filter(Boolean));
+            setSelectedPostId(postId);
+            setActiveTab("likes"); // ← ADD THIS LINE
+            await fetchComments(postId); // ← ADD THIS LINE
+            setModalVisible(true);
+        } catch (error) {
+            console.error("Error fetching likers:", error);
+        }
+    };
+
+    const fetchComments = async (postId) => {
+        try {
+            const commentsRef = collection(db, "feed", postId, "comments");
+            const snapshot = await getDocs(commentsRef);
+    
+            const comments = await Promise.all(snapshot.docs.map(async (docSnap) => {
+                const { userId, caption, timestamp } = docSnap.data();
+                const userRef = doc(db, "users", userId);
+                const userDoc = await getDoc(userRef);
+                const userData = userDoc.exists() ? userDoc.data() : {};
+                return {
+                    id: docSnap.id,
+                    caption,
+                    timestamp,
+                    userId,
+                    username: userData.username || "Unknown",
+                    profilePic: userData.profilePic || null,
+                };
+            }));
+    
+            setSelectedComments(comments);
+        } catch (error) {
+            console.error("Error fetching comments:", error);
+        }
+    };
+
+    const handlePostComment = async () => {
+        if (!userId || !newComment.trim() || !selectedPostId) return;
+    
+        try {
+            await addDoc(collection(db, "feed", selectedPostId, "comments"), {
+                caption: newComment.trim(),
+                userId,
+                timestamp: serverTimestamp(),
+            });
+            setNewComment("");
+            await fetchComments(selectedPostId); // Refresh comments
+
+             // ✅ Increment commentCount locally
+            setPosts(prevPosts =>
+                prevPosts.map(post =>
+                    post.id === selectedPostId
+                        ? { ...post, commentCount: (post.commentCount || 0) + 1 }
+                        : post
+                )
+            );
+        } catch (error) {
+            console.error("Error posting comment:", error);
+        }
+    };
+
+    const handleOpenComments = async (postId) => {
+        setSelectedPostId(postId);
+        await fetchComments(postId);
+        setActiveTab("comments");
+        setModalVisible(true);
+      };
 
     return (
         <View style={styles.container}>
-            <Text style = {styles.ekkoText}> Ekko </Text>
-            <FlatList 
+            <Text style={styles.ekkoText}>Ekko</Text>
+{/* ----------------------------------TOGGLE----------------------------------------- */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}>
+                <TouchableOpacity
+                    onPress={() => setShowOnlyFriends(true)}
+                    style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 16,
+                        backgroundColor: showOnlyFriends ? '#6E1FD1' : '#444',
+                        borderTopLeftRadius: 8,
+                        borderBottomLeftRadius: 8,
+                    }}
+                >
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Friends Only</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => setShowOnlyFriends(false)}
+                    style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 16,
+                        backgroundColor: !showOnlyFriends ? '#6E1FD1' : '#444',
+                        borderTopRightRadius: 8,
+                        borderBottomRightRadius: 8,
+                    }}
+                >
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>All Posts</Text>
+                </TouchableOpacity>
+            </View>
+            <FlatList
                 data={posts}
                 keyExtractor={(item) => item.id}
-                ListHeaderComponent={ // Items here will scroll too! i.e. Welcome msg, post button, etc.
+                ListHeaderComponent={
                     <>
                         {(username || userEmail) && (
-                            <Text style={styles.welcomeText}>
-                                Welcome, @{username || userEmail}!
-                            </Text>
+                            <Text style={styles.welcomeText}>Welcome, @{username || userEmail}!</Text>
                         )}
-                        {/* Once we are doing daily posting, add a check to only display button if the user has not posted today */}
                         <TouchableOpacity onPress={routeToPost} style={styles.shadowContainer}>
                             <View style={styles.buttonContainer}>
                                 <LinearGradient
-                                colors={['#6E1FD1', '#A338F4']}
-                                start={{ x: 0, y: 0.5 }}
-                                end={{ x: 1, y: 0.5 }}
-                                style={styles.gradient}
+                                    colors={['#6E1FD1', '#A338F4']}
+                                    start={{ x: 0, y: 0.5 }}
+                                    end={{ x: 1, y: 0.5 }}
+                                    style={styles.gradient}
                                 >
-                                <Text style={styles.buttonText}>Post your Ekko!</Text>
+                                    <Text style={styles.buttonText}>Post your Ekko!</Text>
                                 </LinearGradient>
                             </View>
                         </TouchableOpacity>
                         <Text style={styles.postUsername}>See what your friends are listening to!</Text>
                     </>
-                  }                
+                }
                 renderItem={({ item, index }) => {
                     const profilePic = item.profilePic ? { uri: item.profilePic } : defaultProfilePics[index % defaultProfilePics.length];
-
                     return (
                         <LinearGradient
                             colors={['#3A0398', '#150F29']}
@@ -199,12 +359,11 @@ const FeedScreen = () => {
                             end={{ x: 0.5, y: 0.7 }}
                             style={styles.postItem}
                         >
-                            <View style={styles.postHeader}> 
+                            <View style={styles.postHeader}>
                                 <Image source={profilePic} style={styles.profilePic} />
-                                <Text style={styles.postUsername}>{item.username || "Unknown User"}</Text>
+                                <Text style={styles.postUsername}>{item.username}</Text>
                             </View>
 
-                            {/* 🔹 Show Song Details */}
                             {item.songDetails ? (
                                 <>
                                     <Image source={{ uri: item.songDetails.album.images[0].url }} style={styles.image} />
@@ -215,16 +374,130 @@ const FeedScreen = () => {
                                 <Text style={styles.loadingText}>Loading song details...</Text>
                             )}
 
-                            <Text style={styles.captionText}>
-                                "{item.caption}"
-                            </Text>
-                        </LinearGradient>
+                            <Text style={styles.captionText}>"{item.caption}"</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                                {/* Like toggle */}
+                                <TouchableOpacity onPress={() => handleLikePost(item.id)}>
+                                    <Text style={{ color: likedPosts.has(item.id) ? '#A338F4' : '#ccc', fontWeight: 'bold' }}>
+                                    {likedPosts.has(item.id) ? "♥ Liked" : "♡ Like"}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <Text style={{ color: '#aaa', marginHorizontal: 6 }}>·</Text>
+
+                                {/* Open modal in Likes tab */}
+                                <TouchableOpacity
+                                    onPress={() => {
+                                    setSelectedPostId(item.id);
+                                    setActiveTab("likes");
+                                    fetchLikers(item.id);
+                                    setModalVisible(true);
+                                    }}
+                                >
+                                    <Text style={{ color: '#aaa' }}>
+                                    {item.likeCount} like{item.likeCount !== 1 ? 's' : ''}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <Text style={{ color: '#aaa', marginHorizontal: 6 }}>·</Text>
+
+                                {/* Open modal in Comments tab */}
+                                <TouchableOpacity
+                                    onPress={() => {
+                                    (async () => {
+                                        setSelectedPostId(item.id);
+                                        await fetchComments(item.id);
+                                        setActiveTab("comments");
+                                        setModalVisible(true);
+                                    })();
+                                    }}
+                                >
+                                    <Text style={{ color: '#aaa' }}>
+                                    {item.commentCount} Comment{item.likeCount !== 1 ? 's' : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                             </View>
+                            </LinearGradient>
+
                     );
                 }}
             />
+        <Modal
+            visible={modalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setModalVisible(false)}
+        >
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 }}>
+                <View style={{ backgroundColor: '#222', padding: 20, borderRadius: 10, maxHeight: '80%' }}>
+                    {/* Tabs */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}>
+                        <TouchableOpacity onPress={() => setActiveTab("likes")} style={{ marginHorizontal: 10 }}>
+                            <Text style={{ color: activeTab === "likes" ? '#A338F4' : '#aaa', fontWeight: 'bold' }}>Likes</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setActiveTab("comments")} style={{ marginHorizontal: 10 }}>
+                            <Text style={{ color: activeTab === "comments" ? '#A338F4' : '#aaa', fontWeight: 'bold' }}>Comments</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView>
+                        {activeTab === "likes" && selectedLikes.map(user => (
+                            <View key={user.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                <Image
+                                    source={user.profilePic ? { uri: user.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                                />
+                                <Text style={{ color: '#fff', fontSize: 16 }}>@{user.username}</Text>
+                            </View>
+                        ))}
+
+                        {activeTab === "comments" && selectedComments.map(comment => (
+                            <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                                <Image
+                                    source={comment.profilePic ? { uri: comment.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                                />
+                                <View>
+                                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>@{comment.username}</Text>
+                                    <Text style={{ color: '#ccc' }}>{comment.caption}</Text>
+                                </View>
+                            </View>
+                        ))}
+                    </ScrollView>
+
+                    {activeTab === "comments" && (
+                        <View style={{ flexDirection: 'row', marginTop: 10, alignItems: 'center' }}>
+                            <TextInput
+                                value={newComment}
+                                onChangeText={setNewComment}
+                                placeholder="Add a comment..."
+                                placeholderTextColor="#aaa"
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#333',
+                                    color: 'white',
+                                    borderRadius: 6,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    marginRight: 10,
+                                }}
+                            />
+                            <TouchableOpacity onPress={handlePostComment}>
+                                <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>Post</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    <TouchableOpacity onPress={() => setModalVisible(false)} style={{ marginTop: 20 }}>
+                        <Text style={{ color: '#A338F4', textAlign: 'center', fontSize: 16 }}>Close</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
         </View>
     );
 };
+
 
 // 🔹 Styles
 const styles = StyleSheet.create({

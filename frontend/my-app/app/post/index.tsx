@@ -170,6 +170,7 @@ const PostScreen = () => {
       const userSong = await addDoc(collection(db, "users", user.uid, "personalSongs"), {
         songId: song.id,
         title: song.name,
+        artist: song.artists.map((a: any) => a.name).join(", "), // ✅ add artist field
         caption: caption,
         timestamp: new Date(),
       });
@@ -188,6 +189,7 @@ const PostScreen = () => {
       userId: user.uid,
       songId: song.id,
       title: song.name,
+      artist: song.artists.map((a: any) => a.name).join(", "),
       caption: caption,
       userID: user.uid,
       username: username, // Store username for easy display

@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, FlatList, Image } from "react-native";
+import { View, Text, StyleSheet, Image, ScrollView, TextInput } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
-import { getFirestore, doc, getDoc, collection, getDocs } from "firebase/firestore";
-import { auth, db } from "../../firebaseConfig"; 
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getDoc, getDocs, collection, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { TouchableOpacity, Modal } from "react-native";
+import { auth, db } from "../../firebaseConfig";
 import { useFonts } from 'expo-font';
-import { TextInput } from 'react-native';
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
+import { serverTimestamp } from 'firebase/firestore';
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
@@ -14,14 +17,15 @@ const ProfileScreen = () => {
     const [profilePic, setProfilePic] = useState(null);
     const [searchInput, setSearchInput] = useState('');
     const [matchedUsers, setMatchedUsers] = useState([]);
+    const [currentFriends, setCurrentFriends] = useState([]);
+    const [friendsList, setFriendsList] = useState([]);
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [newUsername, setNewUsername] = useState("");
+    const [newProfilePic, setNewProfilePic] = useState("");
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
     });
-    
-    if (!fontsLoaded) {
-        return <Text>Loading fonts...</Text>;
-    }
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -29,11 +33,56 @@ const ProfileScreen = () => {
                 setUserId(user.uid);
                 fetchUserData(user.uid);
                 fetchPersonalSongs(user.uid);
+                fetchCurrentFriends(user.uid); 
             }
         });
 
         return () => unsubscribe();
     }, []);
+
+     const pickImage = async () => {
+         let result = await ImagePicker.launchImageLibraryAsync({
+           mediaTypes: ImagePicker.MediaTypeOptions.Images,  // ✅ Fix mediaType
+           allowsEditing: true,
+           aspect: [4, 4],
+           quality: 0.3,
+         });
+       
+         console.log("🔥 DEBUG: ImagePicker result:", result);
+       
+         if (!result.canceled) {
+           const manipResult = await ImageManipulator.manipulateAsync(
+             result.assets[0].uri,
+             [{ resize: { width: 300, height: 300 } }],
+             { base64: true, compress: 0.3 }
+           );
+       
+           console.log("🔥 DEBUG: Manipulated Image:", manipResult);
+       
+           if (manipResult.base64) {
+             console.log("✅ DEBUG: Base64 image size:", manipResult.base64.length);
+             setProfilePic(`data:image/jpeg;base64,${manipResult.base64}`);
+           } else {
+             console.error("❌ ERROR: Image conversion to Base64 failed.");
+           }
+         }
+       };
+
+       const handleSaveProfileChanges = async () => {
+        if (!userId) return;
+      
+        try {
+          await setDoc(doc(db, "users", userId), {
+            username: newUsername,
+            profilePic: profilePic,
+          }, { merge: true });
+      
+          setUsername(newUsername);
+          setEditModalVisible(false);
+        } catch (err) {
+          console.error("Error saving profile:", err);
+        }
+      };
 
     const fetchUserData = async (uid) => {
         try {
@@ -42,8 +91,6 @@ const ProfileScreen = () => {
                 const userData = userDoc.data();
                 setUsername(userData.username || "Unknown User");
                 setProfilePic(userData.profilePic || null);
-            } else {
-                console.error("User document not found!");
             }
         } catch (error) {
             console.error("Error fetching user data:", error);
@@ -53,46 +100,91 @@ const ProfileScreen = () => {
     const fetchPersonalSongs = async (uid) => {
         try {
             const songsRef = collection(db, "users", uid, "personalSongs");
-            const songsSnapshot = await getDocs(songsRef);
-
-            const songsList = songsSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-
-            setPersonalSongs(songsList);
+            const snapshot = await getDocs(songsRef);
+            const songs = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds); // 🔥 sort newest to oldest
+    
+            setPersonalSongs(songs);
         } catch (error) {
-            console.error("Error fetching personal songs:", error);
+            console.error("Error fetching songs:", error);
         }
     };
-    
+
+    const fetchCurrentFriends = async (uid) => {
+        try {
+            const ref = collection(db, "users", uid, "friends");
+            const snapshot = await getDocs(ref);
+            const friends = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setCurrentFriends(friends.map(f => f.userID));
+            setFriendsList(friends);
+        } catch (error) {
+            console.error("Error fetching friends:", error);
+        }
+    };
+
     const searchForFriend = async (input) => {
         setSearchInput(input);
-        if (!input.trim()) {
-            setMatchedUsers([]);
-            return;
-        }
-    
+        if (!input.trim()) return setMatchedUsers([]);
+
         try {
-            const usersRef = collection(db, "users");
-            const snapshot = await getDocs(usersRef);
-    
+            const snapshot = await getDocs(collection(db, "users"));
             const matches = snapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() }))
                 .filter(user =>
-                    user.username &&
-                    user.username.toLowerCase().includes(input.toLowerCase())
+                    user.username?.toLowerCase().includes(input.toLowerCase())
                 );
-    
             setMatchedUsers(matches);
         } catch (error) {
-            console.error("Error searching for friends:", error);
+            console.error("Search error:", error);
         }
     };
 
+    const handleAddFriend = async (friend) => {
+        if (!userId || !username || !profilePic) return;
+
+        const yourRef = doc(db, "users", userId, "friends", friend.id);
+        const theirRef = doc(db, "users", friend.id, "friends", userId);
+
+        try {
+            const exists = await getDoc(yourRef);
+            if (exists.exists()) return;
+
+            await setDoc(yourRef, {
+                username: friend.username,
+                userID: friend.id,
+                profilePic: friend.profilePic || null,
+            });
+
+            await setDoc(theirRef, {
+                username,
+                userID: userId,
+                profilePic: profilePic || null,
+            });
+
+            await fetchCurrentFriends(userId);
+        } catch (error) {
+            console.error("Error adding friend:", error);
+        }
+    };
+
+    const handleRemoveFriend = async (friendId) => {
+        if (!userId) return;
+
+        try {
+            await deleteDoc(doc(db, "users", userId, "friends", friendId));
+            await deleteDoc(doc(db, "users", friendId, "friends", userId));
+            await fetchCurrentFriends(userId);
+        } catch (error) {
+            console.error("Error removing friend:", error);
+        }
+    };
+
+    if (!fontsLoaded) return <Text>Loading fonts...</Text>;
+
     return (
-        <View style={styles.container}>
-            <Text style={styles.ekkoText}> Ekko </Text>
+        <ScrollView style={styles.container}>
+            <Text style={styles.ekkoText}>Ekko</Text>
             <LinearGradient
                 colors={['#3A0398', '#150F29']}
                 start={{ x: 0.5, y: 0 }}
@@ -100,70 +192,117 @@ const ProfileScreen = () => {
                 style={styles.loginBox}
             >
                 <View style={styles.profileHeader}>
-                    <Image source={profilePic ? { uri: profilePic } : require('@/assets/images/profileImages/profilePic1.jpg')} style={styles.profilePic} />
+                    <Image
+                        source={profilePic ? { uri: profilePic } : require('@/assets/images/profileImages/image.png')}
+                        style={styles.profilePic}
+                    />
                     <View style={styles.subHeader}>
                         <Text style={styles.userNameText}>{username}</Text>
-                        <Text style={styles.friendsText}>[num] friends</Text> 
+                        <Text style={styles.friendsText}>
+                            {friendsList.length} friend{friendsList.length !== 1 ? 's' : ''}
+                        </Text>
+                        <TouchableOpacity onPress={() => {
+                            setNewUsername(username);
+                            setNewProfilePic(profilePic || "");
+                            setEditModalVisible(true);
+                        }}>
+                        <Text style={styles.editBtn}>Edit Profile</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
                 <Text style={styles.title}>Badges</Text>
-                <View style={{ marginTop: 30 }}>
-                    <Text style={styles.title}> Search for Friends (Debug)</Text>
-                    <TextInput
-                        placeholder="Enter username"
-                        placeholderTextColor="#aaa"
-                        value={searchInput}
-                        onChangeText={searchForFriend}
-                        style={{
-                            backgroundColor: '#1e1e1e',
-                            color: 'white',
-                            padding: 10,
-                            borderRadius: 8,
-                            borderColor: '#6E1FD1',
-                            borderWidth: 1,
-                            marginBottom: 10,
-                        }}
-                    />
-
-                    {matchedUsers.length > 0 && (
-                        <FlatList
-                            data={matchedUsers}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                                    <Image
-                                        source={item.profilePic ? { uri: item.profilePic } : require('@/assets/images/profileImages/profilePic1.jpg')}
-                                        style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
-                                    />
-                                    <Text style={{ color: '#fff', fontSize: 16 }}>@{item.username}</Text>
-                                </View>
-                            )}
+                <Text style={styles.title}>Friends</Text>
+                {friendsList.map((friend) => (
+                    <View key={friend.userID} style={styles.friendItem}>
+                        <Image
+                            source={friend.profilePic ? { uri: friend.profilePic } : require('@/assets/images/profileImages/image.png')}
+                            style={styles.friendPic}
                         />
-                    )}
-                </View>
-                <Text style={styles.title}>Previous Ekkos</Text>
-                <FlatList
-                    data={personalSongs}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <View style={styles.songItem}>
-                            <Text style={styles.songTitle}>{item.title}</Text>
-                            <Text style={styles.songArtist}>Artist: {item.artist}</Text>
-                            <Text style={styles.songCaption}>{item.caption}</Text>
-                        </View>
-                    )}
+                        <Text style={styles.friendName}>@{friend.username}</Text>
+                        <Text
+                            onPress={() => handleRemoveFriend(friend.userID)}
+                            style={styles.removeBtn}
+                        >
+                            Remove
+                        </Text>
+                    </View>
+                ))}
+
+                <Text style={styles.title}>Search for Friends</Text>
+                <TextInput
+                    placeholder="Enter username"
+                    placeholderTextColor="#aaa"
+                    value={searchInput}
+                    onChangeText={searchForFriend}
+                    style={styles.searchInput}
                 />
+                {matchedUsers.map((user) => (
+                    <View key={user.id} style={styles.friendItem}>
+                        <Image
+                            source={user.profilePic ? { uri: user.profilePic } : require('@/assets/images/profileImages/image.png')}
+                            style={styles.friendPic}
+                        />
+                        <Text style={styles.friendName}>@{user.username}</Text>
+                        {user.id !== userId && !currentFriends.includes(user.id) && (
+                            <Text
+                                onPress={() => handleAddFriend(user)}
+                                style={styles.addBtn}
+                            >
+                                Add Friend
+                            </Text>
+                        )}
+                    </View>
+                ))}
+
+                <Text style={styles.title}>Previous Ekkos</Text>
+                {personalSongs.map((song) => (
+                    <View key={song.id} style={styles.songItem}>
+                        <Text style={styles.songTitle}>{song.title}</Text>
+                        <Text style={styles.songArtist}>Artist: {song.artist}</Text>
+                        <Text style={styles.songCaption}>{song.caption}</Text>
+                        {song.timestamp && (
+                        <Text style={styles.timestamp}>
+                            Posted on: {song.timestamp.toDate().toLocaleString()}
+                        </Text>
+                        )}
+                    </View>
+                ))}
             </LinearGradient>
-        </View>
+            <Modal
+                visible={editModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setEditModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Edit Profile</Text>
+                        <Image
+                            source={newProfilePic ? { uri: newProfilePic } : require('@/assets/images/profileImages/image.png')}
+                            style={styles.modalPic}
+                        />
+                        <Text style={styles.saveBtn} onPress={pickImage}>Edit Picture</Text>
+                        <Text style={styles.userNameText}>Username</Text>
+                        <TextInput
+                            placeholder="New Username"
+                            placeholderTextColor="#aaa"
+                            value={newUsername}
+                            onChangeText={setNewUsername}
+                            style={styles.modalInput}
+                        />
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>Cancel</Text>
+                            <Text style={styles.saveBtn} onPress={handleSaveProfileChanges}>Save</Text>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+        </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: "#2f2f2f",
-    },
+    container: { flex: 1, backgroundColor: "#2f2f2f" },
     ekkoText: {
         fontSize: 36,
         color: '#fff',
@@ -173,13 +312,12 @@ const styles = StyleSheet.create({
     },
     loginBox: {
         padding: 20,
-        marginBottom: 50,
         borderRadius: 19,
+        marginBottom: 30,
     },
     profileHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 10,
         marginBottom: 15,
     },
     profilePic: {
@@ -187,24 +325,56 @@ const styles = StyleSheet.create({
         height: 100,
         borderRadius: 50,
     },
-    subHeader: {
-        marginLeft: 15,
-    },
-    userNameText: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "#fff",
-    },
-    friendsText: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: '#B3B3B3',
-    },
+    subHeader: { marginLeft: 15 },
+    userNameText: { fontSize: 24, fontWeight: "bold", color: "#fff" },
+    friendsText: { fontSize: 16, fontWeight: "bold", color: '#B3B3B3' },
     title: {
         fontSize: 24,
         fontWeight: "bold",
+        marginTop: 20,
         marginBottom: 10,
         color: "#fff",
+    },
+    friendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    friendPic: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        marginRight: 10,
+    },
+    friendName: {
+        color: '#fff',
+        fontSize: 16,
+        flex: 1,
+    },
+    removeBtn: {
+        backgroundColor: '#ff4444',
+        color: '#fff',
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 6,
+        fontSize: 14,
+    },
+    addBtn: {
+        backgroundColor: '#6E1FD1',
+        color: '#fff',
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 6,
+        fontSize: 14,
+    },
+    searchInput: {
+        backgroundColor: '#1e1e1e',
+        color: 'white',
+        padding: 10,
+        borderRadius: 8,
+        borderColor: '#6E1FD1',
+        borderWidth: 1,
+        marginBottom: 10,
     },
     songItem: {
         backgroundColor: "#3A0398",
@@ -224,6 +394,68 @@ const styles = StyleSheet.create({
     songCaption: {
         fontSize: 14,
         color: "#bbb",
+    },
+    timestamp: {
+        fontSize: 12,
+        color: '#aaa',
+        marginTop: 5,
+    },
+    editBtn: {
+        fontSize: 14,
+        color: '#A338F4',
+        marginTop: 5,
+        fontWeight: 'bold',
+    },
+    
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    
+    modalContent: {
+        backgroundColor: '#222',
+        padding: 20,
+        borderRadius: 12,
+        width: '100%',
+    },
+    
+    modalTitle: {
+        fontSize: 20,
+        color: '#fff',
+        fontWeight: 'bold',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    
+    modalPic: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignSelf: 'center',
+        marginBottom: 15,
+    },
+    
+    modalInput: {
+        backgroundColor: '#333',
+        color: 'white',
+        padding: 10,
+        borderRadius: 8,
+        marginBottom: 10,
+    },
+    cancelBtn: {
+        color: '#aaa',
+        fontSize: 16,
+        padding: 10,
+    },
+    
+    saveBtn: {
+        color: '#6E1FD1',
+        fontSize: 16,
+        padding: 10,
+        fontWeight: 'bold',
     },
 });
 
