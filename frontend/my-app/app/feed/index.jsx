@@ -9,6 +9,7 @@ import { auth, db } from "../../firebaseConfig";
 import { Modal, ScrollView } from "react-native";
 import { addDoc, serverTimestamp } from "firebase/firestore"; 
 import { useFocusEffect } from '@react-navigation/native';
+import { Audio } from 'expo-av';
 import axios from "axios";
 
 import profilePic1 from '@/assets/images/profileImages/image.png';
@@ -243,7 +244,18 @@ const FeedScreen = () => {
             console.error("Error fetching feed data:", error);
         }
     };
-
+    const playPreview = async (previewUrl) => {
+        if (!previewUrl) return;
+    
+        try {
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: previewUrl },
+                { shouldPlay: true }
+            );
+        } catch (error) {
+            console.error("Error playing preview:", error);
+        }
+    };
     const fetchSongDetails = async (songId) => {
         if (!accessToken) return null;
         try {
@@ -450,6 +462,9 @@ const FeedScreen = () => {
                                 <Image source={profilePic} style={styles.profilePic} />
                                 <Text style={styles.postUsername}>{item.username}</Text>
                             </View>
+                            {/* <TouchableOpacity onPress={() => playPreview("https://p.scdn.co/mp3-preview/5330c89d0c29a15b02b1d83fa7ec82633e0de2f7?cid=774b29d4f13844c495f206cafdad9c86")}>
+        <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>▶ Test Preview</Text>
+        </TouchableOpacity> */}
 
                             {item.songDetails ? (
                                 <>
@@ -460,15 +475,15 @@ const FeedScreen = () => {
                             ) : (
                                 <Text style={styles.loadingText}>Loading song details...</Text>
                             )}
-
-                            <Text style={styles.captionText}>"{item.caption}"</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                            <Text style={styles.captionText}>"{item.caption}"</Text>
                                 {/* Like toggle */}
                                 <TouchableOpacity onPress={() => handleLikePost(item.id)}>
                                     <Text style={{ color: likedPosts.has(item.id) ? '#A338F4' : '#ccc', fontWeight: 'bold' }}>
-                                    {likedPosts.has(item.id) ? "♥ Liked" : "♡ Like"}
+                                    {likedPosts.has(item.id) ? "♥ Liked" : "♡ Like "}
                                     </Text>
                                 </TouchableOpacity>
+
 
                                 <Text style={{ color: '#aaa', marginHorizontal: 6 }}>·</Text>
 
