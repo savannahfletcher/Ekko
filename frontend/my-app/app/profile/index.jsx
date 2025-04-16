@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Image, ScrollView, TextInput } from "react-native";
+import { View, Text, StyleSheet, Image, ScrollView, TextInput, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import { getDoc, getDocs, collection, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import { serverTimestamp } from 'firebase/firestore';
+import FriendsModal from "./Friends";
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
@@ -20,6 +21,7 @@ const ProfileScreen = () => {
     const [currentFriends, setCurrentFriends] = useState([]);
     const [friendsList, setFriendsList] = useState([]);
     const [editModalVisible, setEditModalVisible] = useState(false);
+    const [friendModalVisible, setFriendModalVisible] = useState(false);
     const [newUsername, setNewUsername] = useState("");
     const [newProfilePic, setNewProfilePic] = useState("");
 
@@ -198,9 +200,11 @@ const ProfileScreen = () => {
                     />
                     <View style={styles.subHeader}>
                         <Text style={styles.userNameText}>{username}</Text>
-                        <Text style={styles.friendsText}>
-                            {friendsList.length} friend{friendsList.length !== 1 ? 's' : ''}
-                        </Text>
+                        <TouchableOpacity onPress={() => setFriendModalVisible(true)}>
+                            <Text style={styles.friendsText}>
+                                {friendsList.length} friend{friendsList.length !== 1 ? 's' : ''}
+                            </Text>
+                        </TouchableOpacity>
                         <TouchableOpacity onPress={() => {
                             setNewUsername(username);
                             setNewProfilePic(profilePic || "");
@@ -211,62 +215,54 @@ const ProfileScreen = () => {
                     </View>
                 </View>
                 <Text style={styles.title}>Badges</Text>
+                <Text style={{ color: '#aaa', fontStyle: 'italic' }}>
+                    You don’t have any badges yet.
+                </Text>
                 <Text style={styles.title}>Friends</Text>
-                {friendsList.map((friend) => (
-                    <View key={friend.userID} style={styles.friendItem}>
-                        <Image
-                            source={friend.profilePic ? { uri: friend.profilePic } : require('@/assets/images/profileImages/image.png')}
-                            style={styles.friendPic}
-                        />
-                        <Text style={styles.friendName}>@{friend.username}</Text>
-                        <Text
-                            onPress={() => handleRemoveFriend(friend.userID)}
-                            style={styles.removeBtn}
-                        >
-                            Remove
-                        </Text>
-                    </View>
-                ))}
-
-                <Text style={styles.title}>Search for Friends</Text>
-                <TextInput
-                    placeholder="Enter username"
-                    placeholderTextColor="#aaa"
-                    value={searchInput}
-                    onChangeText={searchForFriend}
-                    style={styles.searchInput}
-                />
-                {matchedUsers.map((user) => (
-                    <View key={user.id} style={styles.friendItem}>
-                        <Image
-                            source={user.profilePic ? { uri: user.profilePic } : require('@/assets/images/profileImages/image.png')}
-                            style={styles.friendPic}
-                        />
-                        <Text style={styles.friendName}>@{user.username}</Text>
-                        {user.id !== userId && !currentFriends.includes(user.id) && (
-                            <Text
-                                onPress={() => handleAddFriend(user)}
-                                style={styles.addBtn}
-                            >
-                                Add Friend
-                            </Text>
+                {friendsList.length === 0 ? (
+                    <Text style={{ color: '#aaa', fontStyle: 'italic' }}>You don’t have any friends yet.</Text>
+                ) : (
+                    <>
+                        {friendsList.slice(0, 2).map((friend) => (
+                            <View key={friend.userID} style={styles.friendItem}>
+                                <Image
+                                    source={friend.profilePic ? { uri: friend.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    style={styles.friendPic}
+                                />
+                                <Text style={styles.friendName}>@{friend.username}</Text>
+                                <Text
+                                    onPress={() => handleRemoveFriend(friend.userID)}
+                                    style={styles.removeBtn}
+                                >
+                                    Remove
+                                </Text>
+                            </View>
+                        ))}
+                        {friendsList.length > 2 && (
+                            <TouchableOpacity onPress={() => setFriendModalVisible(true)}>
+                                <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>See more friends...</Text>
+                            </TouchableOpacity>
                         )}
-                    </View>
-                ))}
+                    </>
+                )}
 
                 <Text style={styles.title}>Previous Ekkos</Text>
-                {personalSongs.map((song) => (
-                    <View key={song.id} style={styles.songItem}>
-                        <Text style={styles.songTitle}>{song.title}</Text>
-                        <Text style={styles.songArtist}>Artist: {song.artist}</Text>
-                        <Text style={styles.songCaption}>{song.caption}</Text>
-                        {song.timestamp && (
-                        <Text style={styles.timestamp}>
-                            Posted on: {song.timestamp.toDate().toLocaleString()}
-                        </Text>
-                        )}
-                    </View>
-                ))}
+                {personalSongs.length === 0 ? (
+                    <Text style={{ color: '#aaa', fontStyle: 'italic' }}>You haven’t posted any Ekkos yet.</Text>
+                ) : (
+                    personalSongs.map((song) => (
+                        <View key={song.id} style={styles.songItem}>
+                            <Text style={styles.songTitle}>{song.title}</Text>
+                            <Text style={styles.songArtist}>Artist: {song.artist}</Text>
+                            <Text style={styles.songCaption}>{song.caption}</Text>
+                            {song.timestamp && (
+                                <Text style={styles.timestamp}>
+                                    Posted on: {song.timestamp.toDate().toLocaleString()}
+                                </Text>
+                            )}
+                        </View>
+                    ))
+                )}
             </LinearGradient>
             <Modal
                 visible={editModalVisible}
@@ -274,7 +270,9 @@ const ProfileScreen = () => {
                 transparent={true}
                 onRequestClose={() => setEditModalVisible(false)}
             >
+                <TouchableWithoutFeedback onPress={() => setEditModalVisible(false)}>
                 <View style={styles.modalOverlay}>
+                <TouchableWithoutFeedback onPress={() => {}}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Edit Profile</Text>
                         <Image
@@ -295,8 +293,23 @@ const ProfileScreen = () => {
                             <Text style={styles.saveBtn} onPress={handleSaveProfileChanges}>Save</Text>
                         </View>
                     </View>
+                    </TouchableWithoutFeedback>
                 </View>
+                </TouchableWithoutFeedback>
             </Modal>
+
+            <FriendsModal
+                visible={friendModalVisible}
+                onClose={() => setFriendModalVisible(false)}
+                friendsList={friendsList}
+                matchedUsers={matchedUsers}
+                currentFriends={currentFriends}
+                userId={userId}
+                searchInput={searchInput}
+                searchForFriend={searchForFriend}
+                handleAddFriend={handleAddFriend}
+                handleRemoveFriend={handleRemoveFriend}
+            />
         </ScrollView>
     );
 };
