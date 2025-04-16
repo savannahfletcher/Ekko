@@ -87,31 +87,31 @@ const Register = () => {
   };
 
   // Function to upload image to Firebase Storage
-  const uploadImage = async (uid: string) => {
-    if (!profilePic) {
-      console.warn("⚠️ WARNING: No profilePic to upload.");
-      return null;
-    }
+  // const uploadImage = async (uid: string) => {
+  //   if (!profilePic) {
+  //     console.warn("⚠️ WARNING: No profilePic to upload.");
+  //     return null;
+  //   }
   
-    try {
-      console.log("🔥 DEBUG: Fetching image as blob...");
-      const response = await fetch(profilePic);
-      const blob = await response.blob();
+  //   try {
+  //     console.log("🔥 DEBUG: Fetching image as blob...");
+  //     const response = await fetch(profilePic);
+  //     const blob = await response.blob();
   
-      console.log("✅ DEBUG: Blob created. Uploading to Firebase Storage...");
-      const storageRef = ref(storage, `profile_pictures/${uid}.jpg`);
-      await uploadBytes(storageRef, blob);
+  //     console.log("✅ DEBUG: Blob created. Uploading to Firebase Storage...");
+  //     const storageRef = ref(storage, `profile_pictures/${uid}.jpg`);
+  //     await uploadBytes(storageRef, blob);
   
-      console.log("✅ DEBUG: Image uploaded. Getting download URL...");
-      const downloadURL = await getDownloadURL(storageRef);
-      console.log("✅ DEBUG: Download URL:", downloadURL);
+  //     console.log("✅ DEBUG: Image uploaded. Getting download URL...");
+  //     const downloadURL = await getDownloadURL(storageRef);
+  //     console.log("✅ DEBUG: Download URL:", downloadURL);
   
-      return downloadURL;
-    } catch (err) {
-      console.error("❌ ERROR: Upload failed:", err);
-      return null;
-    }
-  };
+  //     return downloadURL;
+  //   } catch (err) {
+  //     console.error("❌ ERROR: Upload failed:", err);
+  //     return null;
+  //   }
+  // };
   
 
   // ✅ Signup function with specific error handling

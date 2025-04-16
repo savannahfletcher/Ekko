@@ -6,6 +6,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { TouchableOpacity, Modal } from "react-native";
 import { auth, db } from "../../firebaseConfig";
 import { useFonts } from 'expo-font';
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import { serverTimestamp } from 'firebase/firestore';
 
 const ProfileScreen = () => {
@@ -38,14 +40,41 @@ const ProfileScreen = () => {
         return () => unsubscribe();
     }, []);
 
-      const handleSaveProfileChanges = async () => {
+     const pickImage = async () => {
+         let result = await ImagePicker.launchImageLibraryAsync({
+           mediaTypes: ImagePicker.MediaTypeOptions.Images,  // ✅ Fix mediaType
+           allowsEditing: true,
+           aspect: [4, 4],
+           quality: 0.3,
+         });
+       
+         console.log("🔥 DEBUG: ImagePicker result:", result);
+       
+         if (!result.canceled) {
+           const manipResult = await ImageManipulator.manipulateAsync(
+             result.assets[0].uri,
+             [{ resize: { width: 300, height: 300 } }],
+             { base64: true, compress: 0.3 }
+           );
+       
+           console.log("🔥 DEBUG: Manipulated Image:", manipResult);
+       
+           if (manipResult.base64) {
+             console.log("✅ DEBUG: Base64 image size:", manipResult.base64.length);
+             setProfilePic(`data:image/jpeg;base64,${manipResult.base64}`);
+           } else {
+             console.error("❌ ERROR: Image conversion to Base64 failed.");
+           }
+         }
+       };
+
+       const handleSaveProfileChanges = async () => {
         if (!userId) return;
-      
-        let profilePicUrl = profilePic;
       
         try {
           await setDoc(doc(db, "users", userId), {
             username: newUsername,
+            profilePic: profilePic,
           }, { merge: true });
       
           setUsername(newUsername);
@@ -252,6 +281,7 @@ const ProfileScreen = () => {
                             source={newProfilePic ? { uri: newProfilePic } : require('@/assets/images/profileImages/image.png')}
                             style={styles.modalPic}
                         />
+                        <Text style={styles.saveBtn} onPress={pickImage}>Edit Picture</Text>
                         <Text style={styles.userNameText}>Username</Text>
                         <TextInput
                             placeholder="New Username"
