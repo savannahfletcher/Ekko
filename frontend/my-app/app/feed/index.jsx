@@ -36,6 +36,11 @@ const FeedScreen = () => {
     const [activeTab, setActiveTab] = useState("likes"); // "likes" or "comments"
     const [newComment, setNewComment] = useState("");
 
+    // variables to reduce spotify api traffic
+    const [visibleCount, setVisibleCount] = useState(5);
+    const [allPosts, setAllPosts] = useState([]);
+    const songCache = {};
+
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
     });
@@ -101,6 +106,10 @@ const FeedScreen = () => {
         }
     }, [accessToken, friendIDs, showOnlyFriends]);
 
+    useEffect(() => {
+        setPosts(allPosts.slice(0, visibleCount));
+    }, [visibleCount, allPosts]);
+
     const fetchFeedWithSongs = async () => {
         if (!userId) return; 
         try {
@@ -128,7 +137,11 @@ const FeedScreen = () => {
           
             // const tempLikedPosts = new Set(); // ✅ declare this here
             const postsWithDetails = await Promise.all(feedData.map(async (post) => {
-                const songDetails = await fetchSongDetails(post.songId);
+                let songDetails = songCache[post.songId];
+                if (!songDetails) {
+                    songDetails = await fetchSongDetails(post.songId);
+                    if (songDetails) songCache[post.songId] = songDetails;
+                }
             
                 // 🔹 Get likes
                 const likesSnapshot = await getDocs(collection(db, "feed", post.id, "likes"));
@@ -166,7 +179,8 @@ const FeedScreen = () => {
                 };
             }));
     
-            setPosts(postsWithDetails);
+            setAllPosts(postsWithDetails); // store all
+            setPosts(postsWithDetails.slice(0, visibleCount)); // show only some
             setLikedPosts(tempLikedPosts); 
         } catch (error) {
             console.error("Error fetching feed data:", error);
@@ -183,6 +197,12 @@ const FeedScreen = () => {
         } catch (error) {
             console.error(`Error fetching song details for ${songId}:`, error.response?.data || error.message);
             return null;
+        }
+    };
+
+    const handleLoadMore = () => {
+        if (visibleCount < allPosts.length) {
+            setVisibleCount(prev => prev + 5);
         }
     };
 
@@ -330,6 +350,8 @@ const FeedScreen = () => {
             <FlatList
                 data={posts}
                 keyExtractor={(item) => item.id}
+                onEndReached={handleLoadMore} 
+                onEndReachedThreshold={0.75} // loads more when you're halfway to the bottom
                 ListHeaderComponent={
                     <>
                         {(username || userEmail) && (
@@ -421,6 +443,11 @@ const FeedScreen = () => {
 
                     );
                 }}
+                ListFooterComponent={
+                    visibleCount < allPosts.length ? (
+                        <Text style={{ textAlign: "center", padding: 10 }}>Loading more...</Text>
+                    ) : null
+                }
             />
         <Modal
             visible={modalVisible}

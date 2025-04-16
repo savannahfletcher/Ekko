@@ -8,7 +8,7 @@ import { collection, addDoc, doc, getDoc,serverTimestamp,setDoc } from "firebase
 import { Alert } from "react-native";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import axios from "axios";
-
+import {useRouter} from 'expo-router';
 
 const tokens = require("../../tokens.json");
 const SPOTIFY_CLIENT_ID = tokens.SPOTIFY_CLIENT_ID;
@@ -30,6 +30,8 @@ const PostScreen = () => {
 
   const [selectedSong, setSelectedSong] = useState(null); // the song to be sent to backend
   const [isModalVisible, setModalVisible] = useState(false);
+
+  const router = useRouter();
 
   // fetch a new access token (valid for 1 hour)
   async function fetchAccessToken() {
@@ -197,6 +199,8 @@ const PostScreen = () => {
     });
 
     console.log("✅ Song posted to FEED with ID:", userSong.id);
+
+    router.push('./feed')
 
 
     } catch (error) {
