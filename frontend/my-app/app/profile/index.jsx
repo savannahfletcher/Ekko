@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Image, ScrollView, TextInput } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
-import { getDoc, getDocs, collection, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, getDoc, getDocs, collection, doc, setDoc, deleteDoc,query, where, } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { TouchableOpacity, Modal } from "react-native";
 import { auth, db } from "../../firebaseConfig";
@@ -9,7 +9,7 @@ import { useFonts } from 'expo-font';
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import { serverTimestamp } from 'firebase/firestore';
-import { getAuth, signOut } from "firebase/auth";
+import { getAuth, signOut, deleteUser } from "firebase/auth";
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -206,12 +206,94 @@ const ProfileScreen = () => {
           setMatchedUsers([]);
           setPersonalSongs([]);
       
-          router.replace('/'); // or go to login screen
+          router.replace('/'); // go to welcome page
       
           console.log("✅ Logged out and cache cleared");
           await AsyncStorage.clear();
         } catch (error) {
           console.error("❌ Error logging out:", error);
+        }
+      };
+
+      const handleDeleteAccount = async () => {
+        try {
+          const auth = getAuth();
+          const db = getFirestore();
+          const user = auth.currentUser;
+      
+          if (!user) throw new Error("No user is signed in.");
+      
+          const userId = user.uid;
+          console.log("attempting to delete userId: ", userId); 
+          console.log("attempting to delete username ", username); 
+      
+          // 1. Delete all friends
+          const friendsRef = collection(db, "users", userId, "friends");
+          const friendsSnapshot = await getDocs(friendsRef);
+          await Promise.all(friendsSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+          console.log("deleting friends....")
+      
+          // 2. Delete all personal songs
+          const songsRef = collection(db, "users", userId, "personalSongs");
+          const songsSnapshot = await getDocs(songsRef);
+          await Promise.all(songsSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+          console.log("deleting personal songs....")
+
+         // 2. 🔄 Remove from other users' friends lists
+         console.log("🔄 Cleaning up other users' friend lists...");
+
+         const usersSnapshot = await getDocs(collection(db, "users"));
+         for (const otherUser of usersSnapshot.docs) {
+         const otherUserId = otherUser.id;
+        
+
+         if (otherUserId === userId) continue;
+
+         const friendsRef = collection(db, "users", otherUserId, "friends");
+         const q = query(friendsRef, where("friendId", "==", userId));
+         const friendsSnapshot = await getDocs(q);
+
+         for (const friendDoc of friendsSnapshot.docs) {
+            await deleteDoc(friendDoc.ref);
+            console.log(`❌ Removed ${userId} from ${otherUserId}'s friends`);
+          }
+         }
+      
+          // 3. Delete all likes and comments by this user from feed posts
+          const feedSnapshot = await getDocs(collection(db, "feed"));
+          for (const postDoc of feedSnapshot.docs) {
+            const postId = postDoc.id;
+      
+            // Delete user's comments
+            const commentRef = collection(db, "feed", postId, "comments");
+            const commentQuery = query(commentRef, where("userId", "==", userId));
+            const commentSnapshot = await getDocs(commentQuery);
+            await Promise.all(commentSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+            
+      
+            // Delete user's likes
+            const likeRef = collection(db, "feed", postId, "likes");
+            const likeQuery = query(likeRef, where("userId", "==", userId));
+            const likeSnapshot = await getDocs(likeQuery);
+            await Promise.all(likeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+            
+          }
+          console.log("deleting user's likes and comments....")
+      
+          // 4. Delete main user document
+          await deleteDoc(doc(db, "users", userId));
+          console.log("deleting user doc")
+      
+          // 5. Delete Firebase auth account
+          await deleteUser(user);
+          console.log("deleting user auth")
+      
+          console.log("✅ Account and all related data deleted");
+          router.replace('/'); // go to welcome page
+          // You might redirect here or show a confirmation
+        } catch (error) {
+          console.error("❌ Error deleting account:", error);
+          // Optionally show an alert or UI feedback
         }
       };
 
@@ -314,6 +396,19 @@ const ProfileScreen = () => {
                     <Text style={styles.logoutText}>Log Out</Text>
                 </LinearGradient>
                 </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleDeleteAccount} style={styles.logoutButton}>
+                <LinearGradient
+                    colors={['#ff4e50', '#f9d423']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.logoutGradient}
+                >
+                    <Text style={styles.logoutText}>Delete Account</Text>
+                </LinearGradient>
+                </TouchableOpacity>
+
+
             </LinearGradient>
             <Modal
                 visible={editModalVisible}
