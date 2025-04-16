@@ -147,7 +147,11 @@ const ProfileScreen = () => {
     };
 
     const handleAddFriend = async (friend) => {
-        if (!userId || !username || !profilePic) return;
+        if (!userId || !username){
+            console.log("does not exist"); 
+            return; 
+        }
+        console.log("user: ", username); 
 
         const yourRef = doc(db, "users", userId, "friends", friend.id);
         const theirRef = doc(db, "users", friend.id, "friends", userId);
@@ -169,6 +173,7 @@ const ProfileScreen = () => {
             });
 
             await fetchCurrentFriends(userId);
+            console.log("friend added"); 
         } catch (error) {
             console.error("Error adding friend:", error);
         }
