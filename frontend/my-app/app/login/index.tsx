@@ -116,8 +116,9 @@ const SignInScreen = () => {
           onChangeText={setPassword}
         />
         <View style={{ padding: 20}}></View>
-      
-        <Button title="LOGIN" onPress={handleLogin} color='#4221D6' />
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          <Text style={styles.loginButtonText}>LOGIN</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity onPress={handleSignUp}>
             <Text style={styles.newUserText}>
@@ -161,6 +162,17 @@ const styles = StyleSheet.create ({
       color: '#fff',
       paddingLeft: 2,
       paddingTop: 10,
+  },
+  loginButton: {
+    backgroundColor: '#4221D6',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   inputBox: {
     borderWidth: 1, 

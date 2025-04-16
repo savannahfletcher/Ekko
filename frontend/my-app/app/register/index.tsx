@@ -203,12 +203,17 @@ const Register = () => {
           
       <View style={{ padding: 10}}></View>
 
-      <Button title="Optional: Select Profile Picture" onPress={pickImage} color='#4221D6'/>
+      <TouchableOpacity style={styles.loginButton} onPress={pickImage}>
+          <Text style={styles.optionalButtonText}>OPTIONAL: SELECT PROFILE PICTURE</Text>
+      </TouchableOpacity>
       
       {/* the variable, profilePic holds the user selected image  */}
       {profilePic && <Image source={{ uri: profilePic }} style={{ width: 100, height: 100, marginTop: 10 }} />}
       <View style={{ padding: 20}}></View>
-      <Button title="SIGNUP" onPress={handleSignup} color='#4221D6'/>
+      {/* <Button title="SIGNUP" onPress={handleSignup} color='#4221D6'/> */}
+      <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
+          <Text style={styles.loginButtonText}>SIGNUP</Text>
+      </TouchableOpacity>
 
       {message ? <Text style={{ color: 'green', marginTop: 10 }}>{message}</Text> : null}
       {error ? <Text style={{ color: 'red', marginTop: 10 }}>{error}</Text> : null}
@@ -260,6 +265,21 @@ const styles = StyleSheet.create ({
     marginVertical: 5 ,
     backgroundColor: '#fff',
     borderRadius: 10,
+  },
+  loginButton: {
+    backgroundColor: '#4221D6',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  optionalButtonText:{
+    color: '#fff',
+    fontSize: 16,
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   backToLoginText: {
       fontSize: 16,
