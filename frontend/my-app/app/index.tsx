@@ -12,25 +12,25 @@ const HomeScreen = () => {
       <Text style={styles.title}>Welcome to Ekko!</Text>
       <Text style={styles.subtitle}>Your favorite music sharing app!</Text>
 
-      <Link href="/login" asChild>
+      <Link href="./login" asChild>
         <TouchableOpacity style={styles.button}>
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
       </Link>
 
-      <Link href="/register" asChild>
+      <Link href="./register" asChild>
         <TouchableOpacity style={styles.button}>
           <Text style={styles.buttonText}>Register</Text>
         </TouchableOpacity>
       </Link>
 
-      <Link href="/feed" asChild>
+      <Link href="./feed" asChild>
         <TouchableOpacity style={styles.button}>
           <Text style={styles.buttonText}>Feed (Debug)</Text>
         </TouchableOpacity>
       </Link>
 
-      <Link href="/post" asChild>
+      <Link href="./post" asChild>
         <TouchableOpacity style={styles.button}>
           <Text style={styles.buttonText}>Search (Debug)</Text>
         </TouchableOpacity>
