@@ -53,6 +53,7 @@ const SignInScreen = () => {
 
   // Replace your current handleLogin with this:
   const handleLogin = async () => {
+    console.log("Login button pressed!");
     setError('');
     setMessage('');
     
