@@ -198,7 +198,7 @@ const ProfileScreen = () => {
             console.error("Error removing friend:", error);
           }
     };
-        const handleDeleteEkko = async (postId) => {
+    const handleDeleteEkko = async (postId) => {
             try {
               if (!userId) return;
           
