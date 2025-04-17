@@ -2,6 +2,7 @@
   "expo": {
     "name": "Ekko",
     "slug": "Ekko",
+    "platforms": ["ios", "android", "web"],
     "version": "1.0.0",
     "orientation": "portrait",
     "assetBundlePatterns": ["**/*", "assets/fonts/*"],
@@ -24,7 +25,8 @@
       "favicon": "./assets/images/favicon.png",
       "build": {
         "publicPath": "/Ekko/"
-      }
+      },
+      "basePath": "/Ekko"
     },
     "plugins": [
       "expo-router",
