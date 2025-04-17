@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
     height: '100%',
     padding: 20,
     paddingTop: 50,
+    paddingBottom: 20,
     backgroundColor: '#2f2f2f',
   },
   image: {
