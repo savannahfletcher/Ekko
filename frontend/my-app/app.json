@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "my-app",
-    "slug": "my-app",
+    "name": "Ekko",
+    "slug": "Ekko",
     "version": "1.0.0",
     "orientation": "portrait",
     "assetBundlePatterns": ["**/*", "assets/fonts/*"],
