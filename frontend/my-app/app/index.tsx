@@ -47,6 +47,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: '100%',
     padding: 20,
+    paddingTop: 50,
     backgroundColor: '#2f2f2f',
   },
   image: {
