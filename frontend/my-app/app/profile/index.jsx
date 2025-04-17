@@ -224,79 +224,82 @@ const ProfileScreen = () => {
           if (!user) throw new Error("No user is signed in.");
       
           const userId = user.uid;
-          console.log("attempting to delete userId: ", userId); 
-          console.log("attempting to delete username ", username); 
+          console.log("attempting to delete userId:", userId);
       
-          // 1. Delete all friends
+          // 1. Delete friends subcollection
           const friendsRef = collection(db, "users", userId, "friends");
           const friendsSnapshot = await getDocs(friendsRef);
           await Promise.all(friendsSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
-          console.log("deleting friends....")
+          console.log("✅ Deleted user’s own friends");
       
-          // 2. Delete all personal songs
+          // 2. Delete personalSongs subcollection
           const songsRef = collection(db, "users", userId, "personalSongs");
           const songsSnapshot = await getDocs(songsRef);
           await Promise.all(songsSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
-          console.log("deleting personal songs....")
-
-         // 2. 🔄 Remove from other users' friends lists
-         console.log("🔄 Cleaning up other users' friend lists...");
-
-         const usersSnapshot = await getDocs(collection(db, "users"));
-         for (const otherUser of usersSnapshot.docs) {
-         const otherUserId = otherUser.id;
-        
-
-         if (otherUserId === userId) continue;
-
-         const friendsRef = collection(db, "users", otherUserId, "friends");
-         const q = query(friendsRef, where("friendId", "==", userId));
-         const friendsSnapshot = await getDocs(q);
-
-         for (const friendDoc of friendsSnapshot.docs) {
-            await deleteDoc(friendDoc.ref);
-            console.log(`❌ Removed ${userId} from ${otherUserId}'s friends`);
-          }
-         }
+          console.log("✅ Deleted user’s personal songs");
       
-          // 3. Delete all likes and comments by this user from feed posts
+          // 3. Remove user from other users' friends lists
+          const allUsersSnapshot = await getDocs(collection(db, "users"));
+          for (const otherUser of allUsersSnapshot.docs) {
+            const otherUserId = otherUser.id;
+            if (otherUserId === userId) continue;
+      
+            const otherFriendsRef = collection(db, "users", otherUserId, "friends");
+            const otherFriendsSnapshot = await getDocs(otherFriendsRef);
+      
+            for (const friendDoc of otherFriendsSnapshot.docs) {
+              if (friendDoc.id === userId) {
+                await deleteDoc(friendDoc.ref);
+                console.log(`❌ Removed ${userId} from ${otherUserId}'s friends`);
+              }
+            }
+          }
+      
+          // 4. Delete user’s posts in the feed
+          const userPostsQuery = query(collection(db, "feed"), where("userId", "==", userId));
+          const userPostsSnapshot = await getDocs(userPostsQuery);
+          await Promise.all(userPostsSnapshot.docs.map((docSnap) => {
+            console.log(`🗑️ Deleting post by user: ${docSnap.id}`);
+            return deleteDoc(docSnap.ref);
+          }));
+      
+          // 5. Delete user's likes and comments from all posts
           const feedSnapshot = await getDocs(collection(db, "feed"));
           for (const postDoc of feedSnapshot.docs) {
             const postId = postDoc.id;
       
-            // Delete user's comments
+            // Delete comments by user
             const commentRef = collection(db, "feed", postId, "comments");
             const commentQuery = query(commentRef, where("userId", "==", userId));
             const commentSnapshot = await getDocs(commentQuery);
             await Promise.all(commentSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
-            
       
-            // Delete user's likes
+            // Delete likes by user
             const likeRef = collection(db, "feed", postId, "likes");
             const likeQuery = query(likeRef, where("userId", "==", userId));
             const likeSnapshot = await getDocs(likeQuery);
             await Promise.all(likeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
-            
           }
-          console.log("deleting user's likes and comments....")
+          console.log("🧹 Cleaned up user’s likes and comments");
       
-          // 4. Delete main user document
+          // 6. Delete main user document
           await deleteDoc(doc(db, "users", userId));
-          console.log("deleting user doc")
+          console.log("🗑️ Deleted main user document");
       
-          // 5. Delete Firebase auth account
+          // 7. Delete Firebase Auth account
           await deleteUser(user);
-          console.log("deleting user auth")
+          console.log("🔥 Deleted Firebase Auth account");
       
-          console.log("✅ Account and all related data deleted");
-          router.replace('/'); // go to welcome page
-          // You might redirect here or show a confirmation
+          // 8. Redirect
+          router.replace('/');
+          // 🔄 Refresh the feed to update like counts
+          await fetchFeedWithSongs();
+          
         } catch (error) {
           console.error("❌ Error deleting account:", error);
-          // Optionally show an alert or UI feedback
+          // Optionally display an error to the user
         }
       };
-
       
 
     if (!fontsLoaded) return <Text>Loading fonts...</Text>;

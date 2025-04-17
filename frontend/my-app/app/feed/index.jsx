@@ -132,8 +132,28 @@ const FeedScreen = () => {
             
                 // 🔹 Get likes
                 const likesSnapshot = await getDocs(collection(db, "feed", post.id, "likes"));
-                const likeCount = likesSnapshot.size; // ✅ count of likes
-                const likedByUser = likesSnapshot.docs.find(doc => doc.id === userId);
+                // const likeCount = likesSnapshot.size; // ✅ count of likes
+                // const likedByUser = likesSnapshot.docs.find(doc => doc.id === userId);
+                let likeCount = 0;
+                let likedByUser = false;
+
+                await Promise.all(likesSnapshot.docs.map(async (likeDoc) => {
+                const likedUserId = likeDoc.id;
+
+                // Check if the user who liked still exists
+                const userRef = doc(db, "users", likedUserId);
+                const userSnap = await getDoc(userRef);
+
+                if (userSnap.exists()) {
+                    likeCount++;
+                    if (likedUserId === userId) {
+                    likedByUser = true;
+                    }
+                } else {
+                    // 🔄 Clean up orphaned like doc (optional but nice)
+                    await deleteDoc(likeDoc.ref);
+                }
+                }));
                 if (likedByUser) {
                     tempLikedPosts.add(post.id);
                 }
