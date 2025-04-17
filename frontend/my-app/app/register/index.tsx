@@ -4,7 +4,9 @@ import { View, TextInput, ScrollView, Text, StyleSheet, Image , TouchableOpacity
 import { auth,storage, db  } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, doc, setDoc, getDoc } from "firebase/firestore";
+import { collection, doc, setDoc, getDoc,getDocs } from "firebase/firestore";
+import { query, where } from "firebase/firestore";
+
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import {useRouter} from 'expo-router';
@@ -85,40 +87,33 @@ const Register = () => {
   const handleBackToLogin = () => {
     router.replace('./login');
   };
-
-  // Function to upload image to Firebase Storage
-  // const uploadImage = async (uid: string) => {
-  //   if (!profilePic) {
-  //     console.warn("⚠️ WARNING: No profilePic to upload.");
-  //     return null;
-  //   }
-  
-  //   try {
-  //     console.log("🔥 DEBUG: Fetching image as blob...");
-  //     const response = await fetch(profilePic);
-  //     const blob = await response.blob();
-  
-  //     console.log("✅ DEBUG: Blob created. Uploading to Firebase Storage...");
-  //     const storageRef = ref(storage, `profile_pictures/${uid}.jpg`);
-  //     await uploadBytes(storageRef, blob);
-  
-  //     console.log("✅ DEBUG: Image uploaded. Getting download URL...");
-  //     const downloadURL = await getDownloadURL(storageRef);
-  //     console.log("✅ DEBUG: Download URL:", downloadURL);
-  
-  //     return downloadURL;
-  //   } catch (err) {
-  //     console.error("❌ ERROR: Upload failed:", err);
-  //     return null;
-  //   }
-  // };
   
 
   // ✅ Signup function with specific error handling
   const handleSignup = async () => {
     setError('');
     setMessage('');
+
     try {
+       // ✅ Check if username is taken
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("username", "==", username));
+      const querySnapshot = await getDocs(q);
+
+      if (!username) {
+        setError("⚠️ Username is required.");
+        return;
+      }
+
+      if (!email || !password) {
+        setError("⚠️ Email and password are required.");
+        return;
+      }
+      if (!querySnapshot.empty) {
+        setError("⚠️ That username is already taken. Please choose another.");
+        return;
+      }
+
       console.log("🔥 DEBUG: Creating user...");
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
