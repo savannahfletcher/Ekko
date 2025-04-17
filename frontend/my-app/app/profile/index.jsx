@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Image, ScrollView, TextInput, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
-import { getDoc, getDocs, collection, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, getDoc, getDocs, collection, doc, setDoc, deleteDoc,query, where, } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { TouchableOpacity, Modal } from "react-native";
 import { auth, db } from "../../firebaseConfig";
@@ -10,6 +10,11 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import { serverTimestamp } from 'firebase/firestore';
 import FriendsModal from "./Friends";
+import { getAuth, signOut, deleteUser } from "firebase/auth";
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
@@ -24,6 +29,7 @@ const ProfileScreen = () => {
     const [friendModalVisible, setFriendModalVisible] = useState(false);
     const [newUsername, setNewUsername] = useState("");
     const [newProfilePic, setNewProfilePic] = useState("");
+    const router = useRouter(); 
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
@@ -143,7 +149,11 @@ const ProfileScreen = () => {
     };
 
     const handleAddFriend = async (friend) => {
-        if (!userId || !username || !profilePic) return;
+        if (!userId || !username){
+            console.log("does not exist"); 
+            return; 
+        }
+        console.log("user: ", username); 
 
         const yourRef = doc(db, "users", userId, "friends", friend.id);
         const theirRef = doc(db, "users", friend.id, "friends", userId);
@@ -165,6 +175,7 @@ const ProfileScreen = () => {
             });
 
             await fetchCurrentFriends(userId);
+            console.log("friend added"); 
         } catch (error) {
             console.error("Error adding friend:", error);
         }
@@ -176,11 +187,151 @@ const ProfileScreen = () => {
         try {
             await deleteDoc(doc(db, "users", userId, "friends", friendId));
             await deleteDoc(doc(db, "users", friendId, "friends", userId));
-            await fetchCurrentFriends(userId);
-        } catch (error) {
+        
+            // 🔁 Refetch updated friends
+            const ref = collection(db, "users", userId, "friends");
+            const snapshot = await getDocs(ref);
+            const updatedFriends = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+            setCurrentFriends(updatedFriends.map(f => f.userID));
+            setFriendsList(updatedFriends);
+            console.log("✅ Friend removed and state refreshed");
+          } catch (error) {
             console.error("Error removing friend:", error);
-        }
+          }
     };
+    const handleDeleteEkko = async (postId) => {
+            try {
+              if (!userId) return;
+          
+              // Delete from personalSongs
+              await deleteDoc(doc(db, "users", userId, "personalSongs", postId));
+              console.log("✅ Deleted from personalSongs");
+          
+              // Delete from feed
+              await deleteDoc(doc(db, "feed", postId));
+              console.log("✅ Deleted from feed");
+
+               // Refresh list from Firestore
+                await fetchPersonalSongs(userId);
+          
+              // Update UI
+              setPersonalSongs(prev => prev.filter(song => song.id !== postId));
+              await fetchPersonalSongs(userId);
+            } catch (error) {
+              console.error("❌ Error deleting ekko:", error);
+            }
+        };
+    const handleLogout = async () => {
+        try {
+          const authInstance = getAuth();
+          await signOut(authInstance);
+      
+          // Clear local states
+          setUserId(null);
+          setUsername('');
+          setProfilePic(null);
+          setFriendsList([]);
+          setCurrentFriends([]);
+          setSearchInput('');
+          setMatchedUsers([]);
+          setPersonalSongs([]);
+      
+          router.replace('/'); // go to welcome page
+      
+          console.log("✅ Logged out and cache cleared");
+          await AsyncStorage.clear();
+        } catch (error) {
+          console.error("❌ Error logging out:", error);
+        }
+      };
+
+      const handleDeleteAccount = async () => {
+        try {
+          const auth = getAuth();
+          const db = getFirestore();
+          const user = auth.currentUser;
+      
+          if (!user) throw new Error("No user is signed in.");
+      
+          const userId = user.uid;
+          console.log("attempting to delete userId:", userId);
+      
+          // 1. Delete friends subcollection
+          const friendsRef = collection(db, "users", userId, "friends");
+          const friendsSnapshot = await getDocs(friendsRef);
+          await Promise.all(friendsSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+          console.log("✅ Deleted user’s own friends");
+      
+          // 2. Delete personalSongs subcollection
+          const songsRef = collection(db, "users", userId, "personalSongs");
+          const songsSnapshot = await getDocs(songsRef);
+          await Promise.all(songsSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+          console.log("✅ Deleted user’s personal songs");
+      
+          // 3. Remove user from other users' friends lists
+          const allUsersSnapshot = await getDocs(collection(db, "users"));
+          for (const otherUser of allUsersSnapshot.docs) {
+            const otherUserId = otherUser.id;
+            if (otherUserId === userId) continue;
+      
+            const otherFriendsRef = collection(db, "users", otherUserId, "friends");
+            const otherFriendsSnapshot = await getDocs(otherFriendsRef);
+      
+            for (const friendDoc of otherFriendsSnapshot.docs) {
+              if (friendDoc.id === userId) {
+                await deleteDoc(friendDoc.ref);
+                console.log(`❌ Removed ${userId} from ${otherUserId}'s friends`);
+              }
+            }
+          }
+      
+          // 4. Delete user’s posts in the feed
+          const userPostsQuery = query(collection(db, "feed"), where("userId", "==", userId));
+          const userPostsSnapshot = await getDocs(userPostsQuery);
+          await Promise.all(userPostsSnapshot.docs.map((docSnap) => {
+            console.log(`🗑️ Deleting post by user: ${docSnap.id}`);
+            return deleteDoc(docSnap.ref);
+          }));
+      
+          // 5. Delete user's likes and comments from all posts
+          const feedSnapshot = await getDocs(collection(db, "feed"));
+          for (const postDoc of feedSnapshot.docs) {
+            const postId = postDoc.id;
+      
+            // Delete comments by user
+            const commentRef = collection(db, "feed", postId, "comments");
+            const commentQuery = query(commentRef, where("userId", "==", userId));
+            const commentSnapshot = await getDocs(commentQuery);
+            await Promise.all(commentSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+      
+            // Delete likes by user
+            const likeRef = collection(db, "feed", postId, "likes");
+            const likeQuery = query(likeRef, where("userId", "==", userId));
+            const likeSnapshot = await getDocs(likeQuery);
+            await Promise.all(likeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+          }
+          console.log("🧹 Cleaned up user’s likes and comments");
+      
+          // 6. Delete main user document
+          await deleteDoc(doc(db, "users", userId));
+          console.log("🗑️ Deleted main user document");
+      
+          // 7. Delete Firebase Auth account
+          await deleteUser(user);
+          console.log("🔥 Deleted Firebase Auth account");
+      
+          // 8. Redirect
+          router.replace('/');
+          // 🔄 Refresh the feed to update like counts
+          await fetchFeedWithSongs();
+          
+        } catch (error) {
+          console.error("❌ Error deleting account:", error);
+          // Optionally display an error to the user
+        }
+      };
+      
 
     if (!fontsLoaded) return <Text>Loading fonts...</Text>;
 
@@ -260,10 +411,40 @@ const ProfileScreen = () => {
                                     Posted on: {song.timestamp.toDate().toLocaleString()}
                                 </Text>
                             )}
-                        </View>
+                            <TouchableOpacity
+                    onPress={() => handleDeleteEkko(song.id, song.feedId)} // Add `feedId` when saving to Firestore
+                    style={styles.deleteButton}
+                    >
+                    <Text style={styles.deleteButtonText}>Delete Ekko</Text>
+                    </TouchableOpacity>
+                    </View>
                     ))
                 )}
+                 <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                <LinearGradient
+                    colors={['#ff4e50', '#f9d423']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.logoutGradient}
+                >
+                    <Text style={styles.logoutText}>Log Out</Text>
+                </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleDeleteAccount} style={styles.logoutButton}>
+                <LinearGradient
+                    colors={['#ff4e50', '#f9d423']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.logoutGradient}
+                >
+                    <Text style={styles.logoutText}>Delete Account</Text>
+                </LinearGradient>
+                </TouchableOpacity>
+
+
             </LinearGradient>
+
             <Modal
                 visible={editModalVisible}
                 animationType="slide"
@@ -315,7 +496,10 @@ const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#2f2f2f" },
+    container: { 
+        flex: 1, 
+        backgroundColor: "#2f2f2f", 
+        padding: 20, },
     ekkoText: {
         fontSize: 36,
         color: '#fff',
@@ -470,6 +654,37 @@ const styles = StyleSheet.create({
         padding: 10,
         fontWeight: 'bold',
     },
+    logoutButton: {
+        marginTop: 20,
+        alignSelf: 'center',
+        borderRadius: 30,
+        overflow: 'hidden',
+      },
+      
+      logoutGradient: {
+        paddingVertical: 12,
+        paddingHorizontal: 40,
+        borderRadius: 30,
+      },
+      
+      logoutText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center',
+      },
+      deleteButton: {
+        backgroundColor: '#ff4444',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        marginTop: 10,
+        alignSelf: 'flex-start',
+      },
+      deleteButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+      },
 });
 
 export default ProfileScreen;
