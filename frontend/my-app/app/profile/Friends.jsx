@@ -1,5 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, TextInput, ScrollView, Image, StyleSheet, TouchableWithoutFeedback} from 'react-native';
+import { useRouter } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
+
 
 interface Friend {
   userID: string;
@@ -38,6 +41,7 @@ const FriendsModal: React.FC<Props> = ({
   handleAddFriend,
   handleRemoveFriend,
 }) => {
+  const router = useRouter();
   return (
     
     <Modal
@@ -63,45 +67,56 @@ const FriendsModal: React.FC<Props> = ({
                 <ScrollView style={{ maxHeight: '70%' }}>
                   {searchInput.trim()
                     ? matchedUsers.map((user) => (
-                        <View key={user.id} style={styles.friendItem}>
-                          <Image
-                            source={
-                              user.profilePic
-                                ? { uri: user.profilePic }
-                                : require('@/assets/images/profileImages/image.png')
-                            }
-                            style={styles.friendPic}
-                          />
-                          <Text style={styles.friendName}>@{user.username}</Text>
-                          {user.id !== userId &&
-                            !currentFriends.includes(user.id) && (
-                              <Text
-                                onPress={() => handleAddFriend(user)}
-                                style={styles.addBtn}
-                              >
-                                Add Friend
-                              </Text>
-                            )}
-                        </View>
+                      <TouchableOpacity
+                        key={user.id}
+                        style={styles.friendItem}
+                        onPress={() => router.push({ pathname: "/friendProfile", params: { userId: user.id } })}
+                      >
+                        <Image
+                          source={
+                            user.profilePic
+                              ? { uri: user.profilePic }
+                              : require('@/assets/images/profileImages/image.png')
+                          }
+                          style={styles.friendPic}
+                        />
+                        <Text style={styles.friendName}>@{user.username}</Text>
+                        {user.id !== userId && !currentFriends.includes(user.id) && (
+                          <TouchableOpacity
+                          onPress={(event) => {
+                            event.stopPropagation?.(); // this safely checks for existence
+                            handleAddFriend(user);
+                          }}
+                        >
+                          <Text style={styles.addBtn}>Add Friend</Text>
+                        </TouchableOpacity>
+                        )}
+                      </TouchableOpacity>    
                       ))
                     : friendsList.map((friend) => (
-                        <View key={friend.userID} style={styles.friendItem}>
-                          <Image
-                            source={
-                              friend.profilePic
-                                ? { uri: friend.profilePic }
-                                : require('@/assets/images/profileImages/image.png')
-                            }
-                            style={styles.friendPic}
-                          />
-                          <Text style={styles.friendName}>@{friend.username}</Text>
-                          <Text
-                            onPress={() => handleRemoveFriend(friend.userID)}
-                            style={styles.removeBtn}
-                          >
-                            Remove
-                          </Text>
-                        </View>
+                      <TouchableOpacity
+                        key={friend.userID}
+                        style={styles.friendItem}
+                        onPress={() => router.push({ pathname: "/friendProfile", params: { userId: friend.userID } })}
+                      >
+                        <Image
+                          source={
+                            friend.profilePic
+                              ? { uri: friend.profilePic }
+                              : require('@/assets/images/profileImages/image.png')
+                          }
+                          style={styles.friendPic}
+                        />
+                        <Text style={styles.friendName}>@{friend.username}</Text>
+                        <TouchableOpacity
+                          onPress={(event) => {
+                            event.stopPropagation?.();
+                            handleRemoveFriend(friend.userID);
+                          }}
+                        >
+                          <Text style={styles.removeBtn}>Remove</Text>
+                        </TouchableOpacity>
+                      </TouchableOpacity>  
                       ))}
                 </ScrollView>
 

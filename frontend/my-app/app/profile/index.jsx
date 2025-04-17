@@ -10,6 +10,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import { serverTimestamp } from 'firebase/firestore';
 import FriendsModal from "./Friends";
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 const ProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
@@ -24,10 +27,20 @@ const ProfileScreen = () => {
     const [friendModalVisible, setFriendModalVisible] = useState(false);
     const [newUsername, setNewUsername] = useState("");
     const [newProfilePic, setNewProfilePic] = useState("");
+    const router = useRouter();
 
     const [fontsLoaded] = useFonts({
         'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
     });
+    useFocusEffect(
+        useCallback(() => {
+          if (userId) {
+            fetchUserData(userId);
+            fetchPersonalSongs(userId);
+            fetchCurrentFriends(userId);
+          }
+        }, [userId])
+      );
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -224,19 +237,27 @@ const ProfileScreen = () => {
                 ) : (
                     <>
                         {friendsList.slice(0, 2).map((friend) => (
-                            <View key={friend.userID} style={styles.friendItem}>
-                                <Image
-                                    source={friend.profilePic ? { uri: friend.profilePic } : require('@/assets/images/profileImages/image.png')}
-                                    style={styles.friendPic}
-                                />
-                                <Text style={styles.friendName}>@{friend.username}</Text>
-                                <Text
-                                    onPress={() => handleRemoveFriend(friend.userID)}
-                                    style={styles.removeBtn}
-                                >
-                                    Remove
-                                </Text>
-                            </View>
+                            <TouchableOpacity
+                            key={friend.userID}
+                            style={styles.friendItem}
+                            onPress={() => router.push({ pathname: "/friendProfile", params: { userId: friend.userID } })}
+                            >
+                            <Image
+                              source={friend.profilePic ? { uri: friend.profilePic } : require('@/assets/images/profileImages/image.png')}
+                              style={styles.friendPic}
+                            />
+                            <Text style={styles.friendName}>@{friend.username}</Text>
+                            <Text
+                              onPress={(e) => {
+                                e.stopPropagation(); // prevent navigating to profile when "Remove" is clicked
+                                handleRemoveFriend(friend.userID);
+                              }}
+                              style={styles.removeBtn}
+                            >
+                              Remove
+                            </Text>
+                          </TouchableOpacity>
+                           
                         ))}
                         {friendsList.length > 2 && (
                             <TouchableOpacity onPress={() => setFriendModalVisible(true)}>

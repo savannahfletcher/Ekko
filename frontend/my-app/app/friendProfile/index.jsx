@@ -10,39 +10,67 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import { serverTimestamp } from 'firebase/firestore';
 import FriendsOfFriendsModal from "./Friends";
+import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const FriendProfileScreen = () => {
     const [personalSongs, setPersonalSongs] = useState([]);
-    const [userId, setUserId] = useState(null);
+    const [clickedUserId, setClickedUserId] = useState(null); // who we're viewing
+    const [viewerId, setViewerId] = useState(null);           // who is logged in
+
     const [username, setUsername] = useState("Loading...");
     const [profilePic, setProfilePic] = useState(null);
-    // const [searchInput, setSearchInput] = useState('');
-    // const [matchedUsers, setMatchedUsers] = useState([]);
     const [currentFriends, setCurrentFriends] = useState([]);
     const [friendsList, setFriendsList] = useState([]);
-    const [editModalVisible, setEditModalVisible] = useState(false);
     const [friendModalVisible, setFriendModalVisible] = useState(false);
-    // const [newUsername, setNewUsername] = useState("");
-    // const [newProfilePic, setNewProfilePic] = useState("");
+    const [editModalVisible, setEditModalVisible] = useState(false);
+
+    const [viewerUsername, setViewerUsername] = useState("");
+    const [viewerProfilePic, setViewerProfilePic] = useState("");
+
+    const router = useRouter();
+    const routeParams = useLocalSearchParams(); // pulled from URL
 
     const [fontsLoaded] = useFonts({
-        'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
+    'MontserratAlternates-ExtraBold': require('./../../assets/fonts/MontserratAlternates-ExtraBold.ttf'),
     });
 
+    // Set clickedUserId based on route (cleaner than destructuring directly)
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                setUserId(user.uid);
-                fetchUserData(user.uid);
-                fetchPersonalSongs(user.uid);
-                fetchCurrentFriends(user.uid); 
-            }
-        });
+    if (routeParams.userId) {
+        setClickedUserId(routeParams.userId);
+    }
+    }, [routeParams]);
 
-        return () => unsubscribe();
+    // Fetch logged-in viewer's data
+    useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+        setViewerId(user.uid);
+
+        const docSnap = await getDoc(doc(db, "users", user.uid));
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            setViewerUsername(data.username || "");
+            setViewerProfilePic(data.profilePic || null);
+        }
+        }
+    });
+
+    return () => unsubscribe();
     }, []);
 
+    // Fetch clicked user's data once we have their ID
+    useEffect(() => {
+    if (!clickedUserId) return;
 
+    fetchUserData(clickedUserId);
+    fetchPersonalSongs(clickedUserId);
+    fetchCurrentFriends(clickedUserId);
+    }, [clickedUserId]);
+        
+
+   
     const fetchUserData = async (uid) => {
         try {
             const userDoc = await getDoc(doc(db, "users", uid));
@@ -82,29 +110,38 @@ const FriendProfileScreen = () => {
         }
     };
 
-    const handleAddFriend = async (friend) => {
-        if (!userId || !username || !profilePic) return;
-
-        const yourRef = doc(db, "users", userId, "friends", friend.id);
-        const theirRef = doc(db, "users", friend.id, "friends", userId);
-
+    const handleAddFriend = async (clickedUser) => {
+        if (!viewerId || !viewerUsername || !viewerProfilePic) return;
+    
+        const yourRef = doc(db, "users", viewerId, "friends", clickedUser.id);
+        const theirRef = doc(db, "users", clickedUser.id, "friends", viewerId);
+    
         try {
             const exists = await getDoc(yourRef);
             if (exists.exists()) return;
-
+    
+            // You add them
             await setDoc(yourRef, {
-                username: friend.username,
-                userID: friend.id,
-                profilePic: friend.profilePic || null,
+                username: clickedUser.username,
+                userID: clickedUser.id,
+                profilePic: clickedUser.profilePic || null,
             });
-
+    
+            // They add you
             await setDoc(theirRef, {
-                username,
-                userID: userId,
-                profilePic: profilePic || null,
+                username: viewerUsername,
+                userID: viewerId,
+                profilePic: viewerProfilePic || null,
             });
 
-            await fetchCurrentFriends(userId);
+            setFriendsList(prev => [...prev, {
+                username: viewerUsername,
+                userID: viewerId,
+                profilePic: viewerProfilePic || null,
+            }]);
+    
+            await fetchCurrentFriends(clickedUser.id); // refresh
+            //router.replace("/feed?refresh=1");
         } catch (error) {
             console.error("Error adding friend:", error);
         }
@@ -141,9 +178,22 @@ const FriendProfileScreen = () => {
                     <View style={styles.subHeader}>
                         <View style={styles.usernameRow}>
                             <Text style={styles.userNameText}>{username}</Text>
-                            <TouchableOpacity style={styles.friendButton}>
-                                <Text style={styles.friendButtonText}>Add Friend</Text>
-                            </TouchableOpacity>
+                            {viewerId && viewerId !== clickedUserId && (
+                            currentFriends.includes(viewerId) ? (
+                                <Text style={styles.friendsText}>Friends</Text>
+                            ) : (
+                                <TouchableOpacity
+                                    style={styles.friendButton}
+                                    onPress={() => handleAddFriend({
+                                        id: clickedUserId,
+                                        username,
+                                        profilePic,
+                                    })}
+                                >
+                                    <Text style={styles.friendButtonText}>Add Friend</Text>
+                                </TouchableOpacity>
+                            )
+                        )}
                         </View>
                         <TouchableOpacity onPress={() => setFriendModalVisible(true)}>
                             <Text style={styles.friendsText}>
@@ -183,22 +233,21 @@ const FriendProfileScreen = () => {
                             <Text style={styles.songTitle}>{song.title}</Text>
                             <Text style={styles.songArtist}>Artist: {song.artist}</Text>
                             <Text style={styles.songCaption}>{song.caption}</Text>
-                            {song.timestamp && (
-                                <Text style={styles.timestamp}>
-                                    Posted on: {song.timestamp.toDate().toLocaleString()}
-                                </Text>
+                            {song.timestamp?.seconds && (
+                            <Text style={styles.timestamp}>
+                                Posted on: {new Date(song.timestamp.seconds * 1000).toLocaleString()}
+                            </Text>
                             )}
                         </View>
                     ))
                 )}
             </LinearGradient>
             <FriendsOfFriendsModal
-                visible={friendModalVisible}
-                onClose={() => setFriendModalVisible(false)}
-                friendsList={friendsList}
-                
-                currentFriends={currentFriends}
-                userId={userId}
+            visible={friendModalVisible}
+            onClose={() => setFriendModalVisible(false)}
+            friendsList={friendsList}
+            currentFriends={currentFriends}
+            userId={viewerId}
             />
         </ScrollView>
     );

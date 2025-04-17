@@ -51,6 +51,8 @@ const FeedScreen = () => {
     if (!fontsLoaded) return <Text>Loading fonts...</Text>;
 
     const routeToPost = () => router.replace('./post');
+    
+ 
 
     const fetchSpotifyAccessToken = async () => {
         try {
@@ -114,6 +116,7 @@ const FeedScreen = () => {
         useCallback(() => {
             if (userId) {
                 fetchPersonalSongs(userId);
+                fetchFriendIDs();
             }
         }, [userId])
     );
@@ -162,6 +165,18 @@ const FeedScreen = () => {
             console.error("Error fetching user's songs:", error);
         }
     };
+
+    const fetchFriendIDs = async () => {
+        try {
+          const friendsRef = collection(db, "users", userId, "friends");
+          const snapshot = await getDocs(friendsRef);
+          const friendList = snapshot.docs.map(doc => doc.id);
+          setFriendIDs([...friendList, userId]); // include yourself too
+        } catch (error) {
+          console.error("Error fetching friends:", error);
+        }
+      };
+
 
     useEffect(() => {
         setPosts(allPosts.slice(0, visibleCount));
@@ -448,7 +463,14 @@ const FeedScreen = () => {
                         >
                             <View style={styles.postHeader}>
                                 <Image source={profilePic} style={styles.profilePic} />
-                                <Text style={styles.postUsername}>{item.username}</Text>
+                                <TouchableOpacity
+                                onPress={() => router.push({
+                                    pathname: '/friendProfile',
+                                    params: { userId: item.userId }
+                                })}
+                                >
+                                <Text style={styles.postUsername}>@{item.username}</Text>
+                                </TouchableOpacity>
                             </View>
 
                             {item.songDetails ? (
