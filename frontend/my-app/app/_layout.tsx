@@ -2,6 +2,12 @@ import { Stack, usePathname } from "expo-router";
 import { View, StyleSheet } from "react-native";
 import Navbar from './components/Navbar';
 
+export const unstable_settings = {
+  initialRouteName: "index",
+  // 👇 This tells expo-router what the base path is for web
+  basePath: "/Ekko",
+};
+
 const RootLayout = () => {
   const pathname = usePathname();
   const hideNavbar = ["/", "/login", "/register"];
