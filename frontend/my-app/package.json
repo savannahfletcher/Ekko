@@ -2,7 +2,7 @@
   "name": "my-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
-  "homepage": "https://savannahfletcher.github.io/Ekko",
+  "homepage": "https://savannahfletcher.github.io/Ekko/",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -11,7 +11,7 @@
     "web": "expo start --web",
     "test": "jest --watchAll",
     "lint": "expo lint",
-    "predeploy": "expo export --platform web && touch dist/.nojekyll",
+    "predeploy": "EXPO_PUBLIC_BASE_PATH=/Ekko expo export --platform web && touch dist/.nojekyll",
     "deploy": "gh-pages --nojekyll --dotfiles --message \"Update deploy\" -d dist"
   },
   "jest": {
