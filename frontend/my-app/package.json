@@ -11,7 +11,7 @@
     "web": "expo start --web",
     "test": "jest --watchAll",
     "lint": "expo lint",
-    "predeploy": "EXPO_PUBLIC_BASE_PATH=/Ekko expo export --platform web && touch dist/.nojekyll",
+    "predeploy": "EXPO_PUBLIC_BASE_PATH=/Ekko EXPO_PUBLIC_PATH=/Ekko expo export --platform web && touch dist/.nojekyll",
     "deploy": "gh-pages --nojekyll --dotfiles --message \"Update deploy\" -d dist"
   },
   "jest": {
