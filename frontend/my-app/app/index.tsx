@@ -1,5 +1,5 @@
 import { Text, View, StyleSheet, Image, TouchableOpacity } from "react-native";
-import TempLogo from '@/assets/images/Ekko_Temp_Logo.png'; // 1600 x 900
+import TempLogo from '../assets/images/Ekko_Temp_Logo.png'; // 1600 x 900
 import {useRouter, Link} from 'expo-router';
 
 const HomeScreen = () => {

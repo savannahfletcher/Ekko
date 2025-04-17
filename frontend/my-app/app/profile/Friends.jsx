@@ -68,7 +68,7 @@ const FriendsModal: React.FC<Props> = ({
                             source={
                               user.profilePic
                                 ? { uri: user.profilePic }
-                                : require('@/assets/images/profileImages/image.png')
+                                : require('../../assets/images/profileImages/image.png')
                             }
                             style={styles.friendPic}
                           />
@@ -90,7 +90,7 @@ const FriendsModal: React.FC<Props> = ({
                             source={
                               friend.profilePic
                                 ? { uri: friend.profilePic }
-                                : require('@/assets/images/profileImages/image.png')
+                                : require('../../assets/images/profileImages/image.png')
                             }
                             style={styles.friendPic}
                           />

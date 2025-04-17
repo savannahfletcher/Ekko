@@ -346,7 +346,7 @@ const ProfileScreen = () => {
             >
                 <View style={styles.profileHeader}>
                     <Image
-                        source={profilePic ? { uri: profilePic } : require('@/assets/images/profileImages/image.png')}
+                        source={profilePic ? { uri: profilePic } : require('../../assets/images/profileImages/image.png')}
                         style={styles.profilePic}
                     />
                     <View style={styles.subHeader}>
@@ -377,7 +377,7 @@ const ProfileScreen = () => {
                         {friendsList.slice(0, 2).map((friend) => (
                             <View key={friend.userID} style={styles.friendItem}>
                                 <Image
-                                    source={friend.profilePic ? { uri: friend.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    source={friend.profilePic ? { uri: friend.profilePic } : require('../../assets/images/profileImages/image.png')}
                                     style={styles.friendPic}
                                 />
                                 <Text style={styles.friendName}>@{friend.username}</Text>
@@ -457,7 +457,7 @@ const ProfileScreen = () => {
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Edit Profile</Text>
                         <Image
-                            source={newProfilePic ? { uri: newProfilePic } : require('@/assets/images/profileImages/image.png')}
+                            source={newProfilePic ? { uri: newProfilePic } : require('../../assets/images/profileImages/image.png')}
                             style={styles.modalPic}
                         />
                         <Text style={styles.saveBtn} onPress={pickImage}>Edit Picture</Text>
