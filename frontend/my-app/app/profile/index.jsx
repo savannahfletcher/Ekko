@@ -499,7 +499,9 @@ const styles = StyleSheet.create({
     container: { 
         flex: 1, 
         backgroundColor: "#2f2f2f", 
-        padding: 20, },
+        padding: 20, 
+        paddingBottom: 80, // making sure navbar doesnt cover content
+    },
     ekkoText: {
         fontSize: 36,
         color: '#fff',

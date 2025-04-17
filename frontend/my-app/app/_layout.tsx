@@ -29,7 +29,6 @@ const RootLayout = () => {
           // paddingTop: 10,
           backgroundColor: '#fff',
           maxWidth: 400,
-          paddingBottom: 80, // making sure navbar doesnt cover content
         },
       }}>
 

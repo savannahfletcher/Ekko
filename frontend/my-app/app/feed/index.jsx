@@ -617,6 +617,7 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 20,
         backgroundColor: '#2f2f2f',
+        paddingBottom: 80, // making sure navbar doesnt cover content
     },
     welcomeText: {
         color: '#fff',
