@@ -4,7 +4,6 @@ import Navbar from './components/Navbar';
 
 export const unstable_settings = {
   initialRouteName: "index",
-  // 👇 This tells expo-router what the base path is for web
   basePath: "/Ekko",
 };
 
