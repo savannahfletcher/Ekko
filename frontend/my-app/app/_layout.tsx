@@ -38,6 +38,7 @@ const RootLayout = () => {
       <Stack.Screen name = 'feed' options = {({ route }) => ({ headerTitle: 'Feed', animation: route.params?.instant ? 'none' : 'default', })} />
       <Stack.Screen name = 'post' options = {({ route }) => ({ headerTitle: 'Search', animation: route.params?.instant ? 'none' : 'default', })} />
       <Stack.Screen name = 'profile' options = {({ route }) => ({ headerTitle: 'Profile', animation: route.params?.instant ? 'none' : 'default', })} />
+      <Stack.Screen name = 'friendProfile' options = {({ route }) => ({ headerTitle: 'FriendProfile', animation: route.params?.instant ? 'none' : 'default', })} />
     </Stack>
 
     {!hideNavbar.includes(pathname) && <Navbar />}
