@@ -116,7 +116,8 @@ const FriendsModal: React.FC<Props> = ({
                         >
                           <Text style={styles.removeBtn}>Remove</Text>
                         </TouchableOpacity>
-                      </TouchableOpacity>  
+                      </TouchableOpacity>     
+       
                       ))}
                 </ScrollView>
 

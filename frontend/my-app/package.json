@@ -2,6 +2,7 @@
   "name": "my-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "homepage": "https://savannahfletcher.github.io/Ekko/",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -9,7 +10,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "predeploy": "EXPO_PUBLIC_BASE_PATH=/Ekko EXPO_PUBLIC_PATH=/Ekko expo export --platform web && touch dist/.nojekyll",
+    "deploy": "gh-pages --nojekyll --dotfiles --message \"Update deploy\" -d dist"
   },
   "jest": {
     "preset": "jest-expo"
@@ -56,6 +59,7 @@
     "@types/react": "~18.3.12",
     "@types/react-native-vector-icons": "^6.4.18",
     "@types/react-test-renderer": "^18.3.0",
+    "gh-pages": "^6.3.0",
     "jest": "^29.2.1",
     "jest-expo": "~52.0.4",
     "react-native-dotenv": "^3.4.11",

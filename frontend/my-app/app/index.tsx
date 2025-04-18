@@ -1,6 +1,6 @@
 import { Text, View, StyleSheet, Image, TouchableOpacity } from "react-native";
-import TempLogo from '@/assets/images/Ekko_Temp_Logo.png'; // 1600 x 900
-import {useRouter} from 'expo-router';
+import TempLogo from '../assets/images/Ekko_Temp_Logo.png'; // 1600 x 900
+import {useRouter, Link} from 'expo-router';
 
 const HomeScreen = () => {
 
@@ -12,33 +12,29 @@ const HomeScreen = () => {
       <Text style={styles.title}>Welcome to Ekko!</Text>
       <Text style={styles.subtitle}>Your favorite music sharing app!</Text>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => router.push('./login')}
-      >
-        <Text style={styles.buttonText}>Login</Text>
-      </TouchableOpacity>
+      <Link href="./login" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Login</Text>
+        </TouchableOpacity>
+      </Link>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => router.push('./register')}
-      >
-        <Text style={styles.buttonText}>Register</Text>
-      </TouchableOpacity>
+      <Link href="./register" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Register</Text>
+        </TouchableOpacity>
+      </Link>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => router.push('./feed')}
-      >
-        <Text style={styles.buttonText}>Feed (Debug)</Text>
-      </TouchableOpacity>
+      <Link href="./feed" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Feed (Debug)</Text>
+        </TouchableOpacity>
+      </Link>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => router.push('./post')}
-      >
-        <Text style={styles.buttonText}>Search (Debug)</Text>
-      </TouchableOpacity>
+      <Link href="./post" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Search (Debug)</Text>
+        </TouchableOpacity>
+      </Link>
 
     </View>
   );
@@ -49,7 +45,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    height: '100%',
     padding: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
     backgroundColor: '#2f2f2f',
   },
   image: {

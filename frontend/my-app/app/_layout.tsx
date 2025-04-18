@@ -2,6 +2,11 @@ import { Stack, usePathname } from "expo-router";
 import { View, StyleSheet } from "react-native";
 import Navbar from './components/Navbar';
 
+export const unstable_settings = {
+  initialRouteName: "index",
+  basePath: "/Ekko",
+};
+
 const RootLayout = () => {
   const pathname = usePathname();
   const hideNavbar = ["/", "/login", "/register"];
@@ -24,7 +29,6 @@ const RootLayout = () => {
           // paddingTop: 10,
           backgroundColor: '#fff',
           maxWidth: 400,
-          paddingBottom: 80, // making sure navbar doesnt cover content
         },
       }}>
 

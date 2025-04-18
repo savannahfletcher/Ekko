@@ -11,7 +11,7 @@ import { addDoc, serverTimestamp } from "firebase/firestore";
 import { useFocusEffect } from '@react-navigation/native';
 import axios from "axios";
 
-import profilePic1 from '@/assets/images/profileImages/image.png';
+import profilePic1 from '../../assets/images/profileImages/image.png';
 
 const defaultProfilePics = [profilePic1];
 
@@ -217,8 +217,28 @@ const FeedScreen = () => {
             
                 // 🔹 Get likes
                 const likesSnapshot = await getDocs(collection(db, "feed", post.id, "likes"));
-                const likeCount = likesSnapshot.size; // ✅ count of likes
-                const likedByUser = likesSnapshot.docs.find(doc => doc.id === userId);
+                // const likeCount = likesSnapshot.size; // ✅ count of likes
+                // const likedByUser = likesSnapshot.docs.find(doc => doc.id === userId);
+                let likeCount = 0;
+                let likedByUser = false;
+
+                await Promise.all(likesSnapshot.docs.map(async (likeDoc) => {
+                const likedUserId = likeDoc.id;
+
+                // Check if the user who liked still exists
+                const userRef = doc(db, "users", likedUserId);
+                const userSnap = await getDoc(userRef);
+
+                if (userSnap.exists()) {
+                    likeCount++;
+                    if (likedUserId === userId) {
+                    likedByUser = true;
+                    }
+                } else {
+                    // 🔄 Clean up orphaned like doc (optional but nice)
+                    await deleteDoc(likeDoc.ref);
+                }
+                }));
                 if (likedByUser) {
                     tempLikedPosts.add(post.id);
                 }
@@ -558,7 +578,7 @@ const FeedScreen = () => {
                         {activeTab === "likes" && selectedLikes.map(user => (
                             <View key={user.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                                 <Image
-                                    source={user.profilePic ? { uri: user.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    source={user.profilePic ? { uri: user.profilePic } : require('../../assets/images/profileImages/image.png')}
                                     style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
                                 />
                                 <Text style={{ color: '#fff', fontSize: 16 }}>@{user.username}</Text>
@@ -568,7 +588,7 @@ const FeedScreen = () => {
                         {activeTab === "comments" && selectedComments.map(comment => (
                             <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
                                 <Image
-                                    source={comment.profilePic ? { uri: comment.profilePic } : require('@/assets/images/profileImages/image.png')}
+                                    source={comment.profilePic ? { uri: comment.profilePic } : require('../../assets/images/profileImages/image.png')}
                                     style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
                                 />
                                 <View>
@@ -619,6 +639,7 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 20,
         backgroundColor: '#2f2f2f',
+        paddingBottom: 80, // making sure navbar doesnt cover content
     },
     welcomeText: {
         color: '#fff',
