@@ -10,7 +10,6 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // ✅ Import Image Manipulator
 import { serverTimestamp } from 'firebase/firestore';
 import FriendsModal from "./Friends";
-import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 import { getAuth, signOut, deleteUser } from "firebase/auth";
