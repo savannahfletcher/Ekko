@@ -23,12 +23,15 @@ const ProfileScreen = () => {
     const [userId, setUserId] = useState(null);
     const [username, setUsername] = useState("Loading...");
     const [profilePic, setProfilePic] = useState(null);
+
     const [searchInput, setSearchInput] = useState('');
     const [matchedUsers, setMatchedUsers] = useState([]);
     const [currentFriends, setCurrentFriends] = useState([]);
     const [friendsList, setFriendsList] = useState([]);
-    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [showAllFriends, setShowAllFriends] = useState(false);
     const [friendModalVisible, setFriendModalVisible] = useState(false);
+
+    const [editModalVisible, setEditModalVisible] = useState(false);
     const [newUsername, setNewUsername] = useState("");
     const [newProfilePic, setNewProfilePic] = useState("");
     const router = useRouter();
@@ -60,33 +63,40 @@ const ProfileScreen = () => {
         return () => unsubscribe();
     }, []);
 
-     const pickImage = async () => {
-         let result = await ImagePicker.launchImageLibraryAsync({
-           mediaTypes: ImagePicker.MediaTypeOptions.Images,  // ✅ Fix mediaType
-           allowsEditing: true,
-           aspect: [4, 4],
-           quality: 0.3,
-         });
-       
-         console.log("🔥 DEBUG: ImagePicker result:", result);
-       
-         if (!result.canceled) {
-           const manipResult = await ImageManipulator.manipulateAsync(
-             result.assets[0].uri,
-             [{ resize: { width: 300, height: 300 } }],
-             { base64: true, compress: 0.3 }
-           );
-       
-           console.log("🔥 DEBUG: Manipulated Image:", manipResult);
-       
-           if (manipResult.base64) {
-             console.log("✅ DEBUG: Base64 image size:", manipResult.base64.length);
-             setProfilePic(`data:image/jpeg;base64,${manipResult.base64}`);
-           } else {
-             console.error("❌ ERROR: Image conversion to Base64 failed.");
-           }
-         }
-       };
+    const pickImage = async (isEditingModal = false) => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,  // ✅ Fix mediaType
+            allowsEditing: true,
+            aspect: [4, 4],
+            quality: 0.3,
+        });
+
+        console.log("🔥 DEBUG: ImagePicker result:", result);
+
+        if (!result.canceled) {
+            const manipResult = await ImageManipulator.manipulateAsync(
+                result.assets[0].uri,
+                [
+                    { resize: { width: 300 } }, // Resize by width first
+                    { crop: { originX: 0, originY: 0, width: 300, height: 300 } }, // Crop to square
+                ],
+                { base64: true, compress: 0.3 }
+            );
+
+            console.log("🔥 DEBUG: Manipulated Image:", manipResult);
+
+            if (manipResult.base64) {
+                console.log("✅ DEBUG: Base64 image size:", manipResult.base64.length);
+                if (isEditingModal) {
+                    setNewProfilePic(`data:image/jpeg;base64,${manipResult.base64}`); // update modal preview
+                } else {
+                    setProfilePic(`data:image/jpeg;base64,${manipResult.base64}`); // update main page
+                }
+            } else {
+                console.error("❌ ERROR: Image conversion to Base64 failed.");
+            }
+        }
+    };
 
        const handleSaveProfileChanges = async () => {
         if (!userId) return;
@@ -94,11 +104,19 @@ const ProfileScreen = () => {
         try {
           await setDoc(doc(db, "users", userId), {
             username: newUsername,
-            profilePic: profilePic,
+            profilePic: newProfilePic,
           }, { merge: true });
       
           setUsername(newUsername);
+          setProfilePic(newProfilePic);
           setEditModalVisible(false);
+
+          router.replace({
+            pathname: "/profile",
+            params: {
+              updatedPic: newProfilePic,
+            },
+          });
         } catch (err) {
           console.error("Error saving profile:", err);
         }
@@ -357,10 +375,13 @@ const ProfileScreen = () => {
                 style={styles.loginBox}
             >
                 <View style={styles.profileHeader}>
-                    <Image
-                        source={profilePic ? { uri: profilePic } : require('../../assets/images/profileImages/image.png')}
-                        style={styles.profilePic}
-                    />
+                    <View style={styles.imageContainer}>
+                        <Image
+                            source={profilePic ? { uri: profilePic } : require('../../assets/images/profileImages/image.png')}
+                            style={styles.profilePic}
+                            resizeMode= 'cover'
+                        />
+                    </View>
                     <View style={styles.subHeader}>
                         <Text style={styles.userNameText}>{username}</Text>
                         <TouchableOpacity onPress={() => setFriendModalVisible(true)}>
@@ -373,7 +394,7 @@ const ProfileScreen = () => {
                             setNewProfilePic(profilePic || "");
                             setEditModalVisible(true);
                         }}>
-                        <Text style={styles.editBtn}>Edit Profile</Text>
+                            <Text style={styles.editBtn}>Edit Profile</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -383,10 +404,13 @@ const ProfileScreen = () => {
                 </Text>
                 <Text style={styles.title}>Friends</Text>
                 {friendsList.length === 0 ? (
-                    <Text style={{ color: '#aaa', fontStyle: 'italic' }}>You don’t have any friends yet.</Text>
+                    <View>
+                        <Text style={{ color: '#aaa', fontStyle: 'italic' }}>You don’t have any friends yet.</Text>
+                                           
+                    </View>
                 ) : (
                     <>
-                        {friendsList.slice(0, 2).map((friend) => (
+                        {(showAllFriends ? friendsList : friendsList.slice(0, 2)).map((friend) => (
                             <TouchableOpacity
                             key={friend.userID}
                             style={styles.friendItem}
@@ -409,12 +433,19 @@ const ProfileScreen = () => {
                           </TouchableOpacity>
                         ))}
                         {friendsList.length > 2 && (
-                            <TouchableOpacity onPress={() => setFriendModalVisible(true)}>
-                                <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>See more friends...</Text>
-                            </TouchableOpacity>
+                            <View>
+                                <TouchableOpacity onPress={() => setShowAllFriends(!showAllFriends)}>
+                                    <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>
+                                        {showAllFriends ? 'Show less friends ▲' : 'Show all friends ▼'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         )}
                     </>
                 )}
+                <TouchableOpacity onPress={() => setFriendModalVisible(true)}>
+                    <Text style={styles.addBtn}>Add more friends!</Text>
+                </TouchableOpacity> 
 
                 <Text style={styles.title}>Previous Ekkos</Text>
                 {personalSongs.length === 0 ? (
@@ -479,7 +510,7 @@ const ProfileScreen = () => {
                             source={newProfilePic ? { uri: newProfilePic } : require('../../assets/images/profileImages/image.png')}
                             style={styles.modalPic}
                         />
-                        <Text style={styles.saveBtn} onPress={pickImage}>Edit Picture</Text>
+                        <Text style={styles.saveBtn} onPress={() => pickImage(true)}>Edit Picture</Text>
                         <Text style={styles.userNameText}>Username</Text>
                         <TextInput
                             placeholder="New Username"
@@ -538,10 +569,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 15,
     },
-    profilePic: {
+    imageContainer: {
         width: 100,
         height: 100,
         borderRadius: 50,
+        overflow: 'hidden',
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    profilePic: {
+        width: 100,
+        height: 100,
+        resizeMode: 'cover',
     },
     subHeader: { marginLeft: 15 },
     userNameText: { fontSize: 24, fontWeight: "bold", color: "#fff" },
@@ -580,10 +620,12 @@ const styles = StyleSheet.create({
     addBtn: {
         backgroundColor: '#6E1FD1',
         color: '#fff',
-        paddingVertical: 5,
+        marginTop: 10,
+        paddingVertical: 10,
         paddingHorizontal: 10,
         borderRadius: 6,
         fontSize: 14,
+        width: 150,
     },
     searchInput: {
         backgroundColor: '#1e1e1e',

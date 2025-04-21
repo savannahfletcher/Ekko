@@ -1,8 +1,6 @@
-import React from 'react';
-import { Modal, View, Text, TextInput, ScrollView, Image, StyleSheet, TouchableWithoutFeedback} from 'react-native';
+import { React, useState } from 'react';
+import { Modal, View, Text, TextInput, ScrollView, Image, StyleSheet, TouchableWithoutFeedback, TouchableOpacity, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { TouchableOpacity } from 'react-native';
-
 
 interface Friend {
   userID: string;
@@ -42,13 +40,36 @@ const FriendsModal: React.FC<Props> = ({
   handleRemoveFriend,
 }) => {
   const router = useRouter();
+
+  // enable LayoutAnimation for Android
+  if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+  
+  const [newlyAddedFriendIds, setNewlyAddedFriendIds] = useState([]);
+  
+  const handleAddFriendLocal = async (user: User) => {
+    await handleAddFriend(user);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setNewlyAddedFriendIds(prev => [...prev, user.id]);
+
+    setTimeout(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setNewlyAddedFriendIds(prev => prev.filter(id => id !== user.id));
+    }, 1500);
+  };
+
   return (
     
     <Modal
       visible={visible}
       animationType="slide"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        onClose(); 
+        setNewlyAddedFriendIds([]);
+        searchForFriend("");
+      }}
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.friendModalOverlay}>
@@ -65,8 +86,10 @@ const FriendsModal: React.FC<Props> = ({
                 />
 
                 <ScrollView style={{ maxHeight: '70%' }}>
-                  {searchInput.trim()
-                    ? matchedUsers.map((user) => (
+                  {searchInput.trim() ? (
+                    <>
+                    <Text style={styles.sectionLabel}>Users</Text>
+                      {matchedUsers.map((user) => (
                       <TouchableOpacity
                         key={user.id}
                         style={styles.friendItem}
@@ -81,47 +104,64 @@ const FriendsModal: React.FC<Props> = ({
                           style={styles.friendPic}
                         />
                         <Text style={styles.friendName}>@{user.username}</Text>
-                        {user.id !== userId && !currentFriends.includes(user.id) && (
-                          <TouchableOpacity
-                          onPress={(event) => {
-                            event.stopPropagation?.(); // this safely checks for existence
-                            handleAddFriend(user);
-                          }}
-                        >
-                          <Text style={styles.addBtn}>Add Friend</Text>
-                        </TouchableOpacity>
+                        {user.id !== userId && (
+                          currentFriends.includes(user.id) && !newlyAddedFriendIds.includes(user.id) ? null : (
+                            newlyAddedFriendIds.includes(user.id) ? (
+                              <Text style={[styles.addBtn, { color: "gray" }]}>Added!</Text>
+                            ) : (
+                              <TouchableOpacity
+                                onPress={(event) => {
+                                  event.stopPropagation?.();
+                                  handleAddFriendLocal(user);
+                                }}
+                              >
+                                <Text style={styles.addBtn}>Add Friend</Text>
+                              </TouchableOpacity>
+                            )
+                          )
                         )}
+
                       </TouchableOpacity>    
-                      ))
-                    : friendsList.map((friend) => (
-                      <TouchableOpacity
-                        key={friend.userID}
-                        style={styles.friendItem}
-                        onPress={() => router.push({ pathname: "/friendProfile", params: { userId: friend.userID } })}
-                      >
-                        <Image
-                          source={
-                            friend.profilePic
-                              ? { uri: friend.profilePic }
-                              : require('@/assets/images/profileImages/image.png')
-                          }
-                          style={styles.friendPic}
-                        />
-                        <Text style={styles.friendName}>@{friend.username}</Text>
-                        <TouchableOpacity
-                          onPress={(event) => {
-                            event.stopPropagation?.();
-                            handleRemoveFriend(friend.userID);
-                          }}
-                        >
-                          <Text style={styles.removeBtn}>Remove</Text>
-                        </TouchableOpacity>
-                      </TouchableOpacity>     
-       
                       ))}
+                      </>
+                    ) : (
+                      <>
+                      <Text style={styles.sectionLabel}>Friends</Text>
+                      {friendsList.map((friend) => (
+                        <TouchableOpacity
+                          key={friend.userID}
+                          style={styles.friendItem}
+                          onPress={() => router.push({ pathname: "/friendProfile", params: { userId: friend.userID } })}
+                        >
+                          <Image
+                            source={
+                              friend.profilePic
+                                ? { uri: friend.profilePic }
+                                : require('@/assets/images/profileImages/image.png')
+                            }
+                            style={styles.friendPic}
+                          />
+                          <Text style={styles.friendName}>@{friend.username}</Text>
+                          <TouchableOpacity
+                            onPress={(event) => {
+                              event.stopPropagation?.();
+                              handleRemoveFriend(friend.userID);
+                            }}
+                          >
+                            <Text style={styles.removeBtn}>Remove</Text>
+                          </TouchableOpacity>
+                        </TouchableOpacity>     
+        
+                      ))}
+                      </>
+                    )}
                 </ScrollView>
 
-                <Text style={styles.cancelBtn} onPress={onClose}>
+                <Text style={styles.cancelBtn} onPress={() => { 
+                  onClose(); 
+                  setNewlyAddedFriendIds([]);
+                  searchForFriend("");
+                }}>
                   Close
                 </Text>
               </View>
@@ -153,6 +193,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     color: 'white',
   },
+  sectionLabel: {
+    color: '#aaa',
+    fontSize: 14,
+    marginBottom: 8,
+    marginTop: 12,
+    fontWeight: '600',
+  },
   searchInput: {
     backgroundColor: '#333',
     color: 'white',
@@ -170,6 +217,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
+    resizeMode: 'cover',
   },
   friendName: {
     color: 'white',

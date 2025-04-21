@@ -68,7 +68,10 @@ const Register = () => {
     if (!result.canceled) {
       const manipResult = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
-        [{ resize: { width: 300, height: 300 } }],
+        [
+          { resize: { width: 300 } }, // Resize by width first
+          { crop: { originX: 0, originY: 0, width: 300, height: 300 } }, // Crop to square
+        ],
         { base64: true, compress: 0.3 }
       );
   
