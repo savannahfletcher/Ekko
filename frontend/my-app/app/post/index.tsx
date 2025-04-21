@@ -10,6 +10,7 @@ import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import axios from "axios";
 import {useRouter} from 'expo-router';
 import { Audio } from 'expo-av';
+import React from "react";
 
 const tokens = require("../../tokens.json");
 const SPOTIFY_CLIENT_ID = tokens.SPOTIFY_CLIENT_ID;

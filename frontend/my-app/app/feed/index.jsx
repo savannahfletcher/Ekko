@@ -11,7 +11,7 @@ import { addDoc, serverTimestamp } from "firebase/firestore";
 import { useFocusEffect } from '@react-navigation/native';
 import { Audio } from 'expo-av';
 import axios from "axios";
-import { Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { Keyboard, TouchableWithoutFeedback,KeyboardAvoidingView, Platform  } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import profilePic1 from '../../assets/images/profileImages/image.png';
@@ -503,17 +503,17 @@ const FeedScreen = () => {
       };
 
     return (
-    <TouchableWithoutFeedback
-        onPress={async () => {
-          Keyboard.dismiss();
-          if (currentSound) {
-            await currentSound.stopAsync();
-            await currentSound.unloadAsync();
-            setCurrentSound(null);
-            setPlayingSongName(null);
-          }
-        }}
-      >   
+    // <TouchableWithoutFeedback
+    //     onPress={async () => {
+    //       Keyboard.dismiss();
+    //       if (currentSound) {
+    //         await currentSound.stopAsync();
+    //         await currentSound.unloadAsync();
+    //         setCurrentSound(null);
+    //         setPlayingSongName(null);
+    //       }
+    //     }}
+    //   >   
         <View style={styles.container}>
             <Text style={styles.ekkoText}>Ekko</Text>
 {/* ----------------------------------TOGGLE----------------------------------------- */}
@@ -629,9 +629,8 @@ const FeedScreen = () => {
                             ) : (
                                 <Text style={styles.loadingText}>Loading song details...</Text>
                             )}
-                            <Text style={styles.captionText}>"{item.caption}"</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-                            
+                            <Text style={styles.captionText}>"{item.caption}"</Text>
 
                                                                 {/* Like toggle */}
                                 <TouchableOpacity onPress={() => handleLikePost(item.id)}>
@@ -701,7 +700,14 @@ const FeedScreen = () => {
             animationType="slide"
             transparent={true}
             onRequestClose={() => setModalVisible(false)}
+
         >
+        {/* <KeyboardAvoidingView
+                behavior="padding"
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        > */}
+            {/* <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}> */}
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 }}>
                 <View style={{ backgroundColor: '#222', padding: 20, borderRadius: 10, maxHeight: '80%' }}>
                     {/* Tabs */}
@@ -714,7 +720,7 @@ const FeedScreen = () => {
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView>
+                    <ScrollView >
                         {activeTab === "likes" && selectedLikes.map(user => (
                             <View key={user.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                                 <Image
@@ -743,7 +749,11 @@ const FeedScreen = () => {
                         <View style={{ flexDirection: 'row', marginTop: 10, alignItems: 'center' }}>
                             <TextInput
                                 value={newComment}
-                                onChangeText={setNewComment}
+                                onChangeText={(text) => {
+                                    console.log("📝 typed:", text); // 👈 test log
+                                    setNewComment(text);
+                                  }}
+
                                 placeholder="Add a comment..."
                                 placeholderTextColor="#aaa"
                                 style={{
@@ -767,9 +777,12 @@ const FeedScreen = () => {
                     </TouchableOpacity>
                 </View>
             </View>
+            {/* </TouchableWithoutFeedback> */}
+        {/* </KeyboardAvoidingView> */}
+            
         </Modal>
         </View>
-    </TouchableWithoutFeedback>
+   // </TouchableWithoutFeedback>
     );
 };
 
