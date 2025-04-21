@@ -41,6 +41,9 @@ const FeedScreen = () => {
     const [newComment, setNewComment] = useState("");
     const [personalSongs, setPersonalSongs] = useState([]);
     const [hasPostedToday, setHasPostedToday] = useState(false);
+    const [playingSongName, setPlayingSongName] = useState(null); // For UI
+    const [isLoadingPreview, setIsLoadingPreview] = useState(false); // Optional loading flag
+
 
     const [currentSound, setCurrentSound] = useState(null);
 
@@ -333,42 +336,54 @@ const FeedScreen = () => {
     };
       
     const playPreview = async (songName) => {
+        if (isLoadingPreview) return; // prevent multiple requests
+        setIsLoadingPreview(true);
+      
         const previewUrl = await getPreviewUrl(songName);
       
         if (!previewUrl) {
           console.warn("❌ No preview URL found for this song.");
+          setIsLoadingPreview(false);
           return;
         }
       
         try {
-          // Stop the previous sound if playing
+          // Stop and unload any current sound
           if (currentSound) {
             await currentSound.stopAsync();
             await currentSound.unloadAsync();
             setCurrentSound(null);
+      
+            // 🛑 If same song was tapped again, just stop it
+            if (playingSongName === songName) {
+              setPlayingSongName(null);
+              setIsLoadingPreview(false);
+              return;
+            }
           }
       
           const { sound } = await Audio.Sound.createAsync(
             { uri: previewUrl },
-            { shouldPlay: true, volume: 0.0 } // Start at volume 0
+            { shouldPlay: true }
           );
-          setCurrentSound(sound);
-
-          // 🔊 Fade in to full volume over 1.5 seconds
-            let currentVolume = 0.0;
-            const interval = setInterval(async () => {
-            currentVolume += 0.1;
-            if (currentVolume >= 1.0) {
-                clearInterval(interval);
-                await sound.setVolumeAsync(1.0);
-            } else {
-                await sound.setVolumeAsync(currentVolume);
+      
+          sound.setOnPlaybackStatusUpdate((status) => {
+            if (status.didJustFinish) {
+              sound.unloadAsync();
+              setCurrentSound(null);
+              setPlayingSongName(null);
             }
-            }, 0); // every 150ms
+          });
+      
+          setCurrentSound(sound);
+          setPlayingSongName(songName);
         } catch (error) {
           console.error("Error playing preview:", error);
+        } finally {
+          setIsLoadingPreview(false);
         }
-    };
+      };
+      
       
 
     const handleLoadMore = () => {
@@ -495,6 +510,7 @@ const FeedScreen = () => {
             await currentSound.stopAsync();
             await currentSound.unloadAsync();
             setCurrentSound(null);
+            setPlayingSongName(null);
           }
         }}
       >   
@@ -593,16 +609,21 @@ const FeedScreen = () => {
                                     <Text style={styles.postDetails}>Song • {item.songDetails.artists.map(a => a.name).join(", ")}</Text>
 
                                     <TouchableOpacity
-                                    onPress={() => {
-                                        const artist = item.songDetails.artists?.[0]?.name || "";
-                                        const songQuery = `${item.songDetails.name} ${artist}`.trim();
-                                        console.log("🎶 Song Query:", songQuery); // <- 🔍 log it before using
-                                        playPreview(songQuery);
-                                    }}
-                                    style={{ marginTop: 8 }}
-                                    >
-                                    <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>▶ Preview</Text>
-                                    </TouchableOpacity>
+                                        onPress={() => {
+                                            const artist = item.songDetails.artists?.[0]?.name || "";
+                                            const songQuery = `${item.songDetails.name} ${artist}`.trim();
+                                            playPreview(songQuery);
+                                        }}
+                                        style={{ marginTop: 8 }}
+                                        >
+                                        <Text style={{ 
+                                            color: playingSongName === `${item.songDetails.name} ${item.songDetails.artists?.[0]?.name}`.trim() ? '#F48FB1' : '#A338F4',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {playingSongName === `${item.songDetails.name} ${item.songDetails.artists?.[0]?.name}`.trim() ? "⏸ Stop" : "▶ Preview"}
+                                        </Text>
+                                        </TouchableOpacity>
+
                                 </>
 
                             ) : (
