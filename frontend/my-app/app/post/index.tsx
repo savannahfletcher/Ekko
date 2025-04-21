@@ -173,6 +173,7 @@ const PostScreen = () => {
         songId: song.id,
         title: song.name,
         artist: song.artists.map((a: any) => a.name).join(", "), // ✅ add artist field
+        albumCover: song.album.images[0]?.url || "",
         caption: caption,
         timestamp: new Date(),
       });
@@ -187,14 +188,14 @@ const PostScreen = () => {
     const username = userDocSnap.exists() ? userDocSnap.data().username : "Unknown User";
 
      // 🔹  Post song to "feed" collection
-    await setDoc(doc(db, "feed", userSong.id), {
+     await setDoc(doc(db, "feed", userSong.id), {
       userId: user.uid,
       songId: song.id,
       title: song.name,
       artist: song.artists.map((a: any) => a.name).join(", "),
+      albumCover: song.album.images[0]?.url || "", // ✅ Add this
       caption: caption,
-      userID: user.uid,
-      username: username, // Store username for easy display
+      username: username,
       timestamp: serverTimestamp(),
     });
 
