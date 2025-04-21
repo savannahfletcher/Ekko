@@ -631,8 +631,9 @@ const FeedScreen = () => {
                             ) : (
                                 <Text style={styles.loadingText}>Loading song details...</Text>
                             )}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
                             <Text style={styles.captionText}>"{item.caption}"</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                            
 
                                                                 {/* Like toggle */}
                                 <TouchableOpacity onPress={() => handleLikePost(item.id)}>

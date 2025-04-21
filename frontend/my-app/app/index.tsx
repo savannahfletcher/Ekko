@@ -1,7 +1,6 @@
 import { Text, View, StyleSheet, Image, TouchableOpacity } from "react-native";
 import TempLogo from '../assets/images/Ekko_Temp_Logo.png'; // 1600 x 900
 import {useRouter, Link} from 'expo-router';
-
 const HomeScreen = () => {
 
   const router = useRouter();
@@ -24,7 +23,7 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </Link>
 
-      <Link href="./feed" asChild>
+      {/* <Link href="./feed" asChild>
         <TouchableOpacity style={styles.button}>
           <Text style={styles.buttonText}>Feed (Debug)</Text>
         </TouchableOpacity>
@@ -34,7 +33,7 @@ const HomeScreen = () => {
         <TouchableOpacity style={styles.button}>
           <Text style={styles.buttonText}>Search (Debug)</Text>
         </TouchableOpacity>
-      </Link>
+      </Link> */}
 
     </View>
   );

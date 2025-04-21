@@ -65,6 +65,7 @@ const Navbar = () => {
                                 styles.navbarIcon,
                                 pathname === "/profile" && styles.activeBorder
                             ]}
+                            resizeMode="cover"
                         />
                     ) : (
                     <Icon style={[styles.navbarIcon, pathname === "/profile" && styles.active]} name="user-circle" size={30} color="#000" />
