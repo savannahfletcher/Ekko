@@ -2,10 +2,27 @@ import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Image, TouchableOpacity } from "react-native";
 import Modal from "react-native-modal";
 
-const SelectPopup = ({ isVisible, onClose, selectedSong, handlePost }) => {
-  const [caption, setCaption] = useState("");
+  type SelectPopupProps = {
+    isVisible: boolean;
+    onClose: () => void;
+    selectedSong: any; // You can refine this later if you want
+    handlePost: (song: any, caption: string) => void;
+    playPreview: (songName: string, artistName: string) => void;
+    stopPreview: () => void;
+  };
 
-  if (!selectedSong) return null;
+  const SelectPopup: React.FC<SelectPopupProps> = ({
+      isVisible,
+      onClose,
+      selectedSong,
+      handlePost,
+      playPreview,
+      stopPreview,
+    }) => {
+
+    const [caption, setCaption] = useState("");
+
+    if (!selectedSong) return null;
 
   return (
     <Modal isVisible={isVisible} onBackdropPress={onClose}>
@@ -21,6 +38,18 @@ const SelectPopup = ({ isVisible, onClose, selectedSong, handlePost }) => {
           value={caption}
           onChangeText={setCaption}
         />
+
+        {selectedSong && (
+          <View style={styles.previewControls}>
+            <TouchableOpacity onPress={() => playPreview(selectedSong.name, selectedSong.artists[0].name)}>
+              <Text style={styles.previewText}>▶ Preview</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={stopPreview}>
+              <Text style={styles.previewText}>⏹ Stop</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
 
         <TouchableOpacity style={styles.postButton} onPress={() => {
             handlePost(selectedSong, caption)
@@ -76,6 +105,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+
+  previewControls: {
+    flexDirection: "row",
+    gap: 15,
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  previewText: {
+    color: "#A338F4",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  
 });
 
 export default SelectPopup;

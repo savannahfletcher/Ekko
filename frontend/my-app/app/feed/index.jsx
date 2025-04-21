@@ -291,20 +291,8 @@ const FeedScreen = () => {
         }
     };
 
-    // // Stop preview when user navigating away to another screen
-    // useEffect(() => {
-    //     const unsubscribe = navigation.addListener('beforeRemove', async () => {
-    //       if (currentSound) {
-    //         await currentSound.stopAsync();
-    //         await currentSound.unloadAsync();
-    //         setCurrentSound(null);
-    //       }
-    //     });
       
-    //     return unsubscribe;
-    //   }, [navigation, currentSound]);
-      
-
+ // calls the spofity preview api deployed on render 
     const getPreviewUrl = async (songName) => {
         try {
           const response = await fetch(`https://spotify-preview-api.onrender.com/preview?song=${encodeURIComponent(songName)}`);
