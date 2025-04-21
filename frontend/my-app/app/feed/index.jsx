@@ -128,43 +128,25 @@ const FeedScreen = () => {
     );
 
     // ✅ stops audio when screen loses focus
-    useFocusEffect(
-        useCallback(() => {
-          return () => {
-            (async () => {
-              if (currentSound) {
-                try {
-                  let currentVolume = 1.0;
-                  const fadeOutInterval = setInterval(async () => {
+   
+        useFocusEffect(
+            useCallback(() => {
+            return () => {
+                (async () => {
+                if (currentSound) {
                     try {
-                      currentVolume -= 0.1;
-                      if (currentVolume <= 0) {
-                        clearInterval(fadeOutInterval);
-      
-                        // Stop and unload safely
-                        if (currentSound) {
-                          await currentSound.stopAsync();
-                          await currentSound.unloadAsync();
-                          setCurrentSound(null);
-                        }
-                      } else {
-                        if (currentSound) {
-                          await currentSound.setVolumeAsync(currentVolume);
-                        }
-                      }
-                    } catch (err) {
-                      console.warn("⚠️ Fade-out error (interval):", err.message);
-                      clearInterval(fadeOutInterval);
+                    await currentSound.stopAsync();
+                    await currentSound.unloadAsync();
+                    setCurrentSound(null);
+                    } catch (error) {
+                    console.warn("⚠️ Error stopping sound:", error.message);
                     }
-                  }, 150);
-                } catch (error) {
-                  console.warn("⚠️ Fade-out setup error:", error.message);
                 }
-              }
-            })();
-          };
-        }, [currentSound])
-      );
+                })();
+            };
+            }, [currentSound])
+        );
+  
       
       
 
@@ -368,7 +350,7 @@ const FeedScreen = () => {
       
           const { sound } = await Audio.Sound.createAsync(
             { uri: previewUrl },
-            { shouldPlay: true, volume: 0.3 } // Start at volume 0
+            { shouldPlay: true, volume: 0.0 } // Start at volume 0
           );
           setCurrentSound(sound);
 
@@ -382,24 +364,12 @@ const FeedScreen = () => {
             } else {
                 await sound.setVolumeAsync(currentVolume);
             }
-            }, 150); // every 150ms
+            }, 0); // every 150ms
         } catch (error) {
           console.error("Error playing preview:", error);
         }
     };
       
-    // const fetchSongDetails = async (songId) => {
-    //     if (!accessToken) return null;
-    //     try {
-    //         const response = await axios.get(`https://api.spotify.com/v1/tracks/${songId}`, {
-    //             headers: { Authorization: `Bearer ${accessToken}` },
-    //         });
-    //         return response.data;
-    //     } catch (error) {
-    //         console.error(`Error fetching song details for ${songId}:`, error.response?.data || error.message);
-    //         return null;
-    //     }
-    // };
 
     const handleLoadMore = () => {
         if (visibleCount < allPosts.length) {
@@ -624,7 +594,9 @@ const FeedScreen = () => {
 
                                     <TouchableOpacity
                                     onPress={() => {
-                                        const songQuery = `${item.songDetails.name} ${item.songDetails.artists[0].name}`;
+                                        const artist = item.songDetails.artists?.[0]?.name || "";
+                                        const songQuery = `${item.songDetails.name} ${artist}`.trim();
+                                        console.log("🎶 Song Query:", songQuery); // <- 🔍 log it before using
                                         playPreview(songQuery);
                                     }}
                                     style={{ marginTop: 8 }}
