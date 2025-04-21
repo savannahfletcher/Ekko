@@ -9,6 +9,7 @@ import { Alert } from "react-native";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import axios from "axios";
 import {useRouter} from 'expo-router';
+import { Audio } from 'expo-av';
 
 const tokens = require("../../tokens.json");
 const SPOTIFY_CLIENT_ID = tokens.SPOTIFY_CLIENT_ID;
@@ -30,6 +31,9 @@ const PostScreen = () => {
 
   const [selectedSong, setSelectedSong] = useState(null); // the song to be sent to backend
   const [isModalVisible, setModalVisible] = useState(false);
+  const [currentSound, setCurrentSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
 
   const router = useRouter();
 
@@ -199,7 +203,7 @@ const PostScreen = () => {
     });
 
     console.log("✅ Song posted to FEED with ID:", userSong.id);
-
+    
     router.push('./feed')
 
 
@@ -207,6 +211,47 @@ const PostScreen = () => {
       console.error("Error posting song:", error);
     }
 
+  };
+
+  // Preview Song Funcitons
+
+  const playPreview = async (songName: string, artistName: string) => {
+    const songQuery = `${songName} ${artistName}`;
+    try {
+      const response = await fetch(`https://spotify-preview-api.onrender.com/preview?song=${encodeURIComponent(songQuery)}`);
+      const data = await response.json();
+      const previewUrl = data.previewUrl;
+  
+      if (!previewUrl) {
+        console.warn("No preview URL available.");
+        return;
+      }
+  
+      if (currentSound) {
+        await currentSound.stopAsync();
+        await currentSound.unloadAsync();
+        setCurrentSound(null);
+      }
+  
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: previewUrl },
+        { shouldPlay: true }
+      );
+  
+      setCurrentSound(sound);
+      setIsPlaying(true);
+    } catch (error) {
+      console.error("Error playing preview:", error);
+    }
+  };
+  
+  const stopPreview = async () => {
+    if (currentSound) {
+      await currentSound.stopAsync();
+      await currentSound.unloadAsync();
+      setCurrentSound(null);
+      setIsPlaying(false);
+    }
   };
   
 
@@ -321,12 +366,17 @@ const PostScreen = () => {
       ) : null
     }
     />
-    <SelectPopup
-    isVisible={isModalVisible}
-    onClose={() => setModalVisible(false)}
-    selectedSong={selectedSong}
-    handlePost={handlePost}
-  />
+   <SelectPopup
+  isVisible={isModalVisible}
+  onClose={() => {
+    setModalVisible(false);
+    stopPreview();
+  }}
+  selectedSong={selectedSong}
+  handlePost={handlePost}
+  playPreview={playPreview}
+  stopPreview={stopPreview}
+/>
   </>
   
   );

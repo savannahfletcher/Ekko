@@ -9,7 +9,10 @@ import { auth, db } from "../../firebaseConfig";
 import { Modal, ScrollView } from "react-native";
 import { addDoc, serverTimestamp } from "firebase/firestore"; 
 import { useFocusEffect } from '@react-navigation/native';
+import { Audio } from 'expo-av';
 import axios from "axios";
+import { Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 import profilePic1 from '../../assets/images/profileImages/image.png';
 
@@ -38,6 +41,9 @@ const FeedScreen = () => {
     const [newComment, setNewComment] = useState("");
     const [personalSongs, setPersonalSongs] = useState([]);
     const [hasPostedToday, setHasPostedToday] = useState(false);
+
+    const [currentSound, setCurrentSound] = useState(null);
+
 
     // variables to reduce spotify api traffic
     const [visibleCount, setVisibleCount] = useState(5);
@@ -120,6 +126,47 @@ const FeedScreen = () => {
             }
         }, [userId])
     );
+
+    // ✅ stops audio when screen loses focus
+    useFocusEffect(
+        useCallback(() => {
+          return () => {
+            (async () => {
+              if (currentSound) {
+                try {
+                  let currentVolume = 1.0;
+                  const fadeOutInterval = setInterval(async () => {
+                    try {
+                      currentVolume -= 0.1;
+                      if (currentVolume <= 0) {
+                        clearInterval(fadeOutInterval);
+      
+                        // Stop and unload safely
+                        if (currentSound) {
+                          await currentSound.stopAsync();
+                          await currentSound.unloadAsync();
+                          setCurrentSound(null);
+                        }
+                      } else {
+                        if (currentSound) {
+                          await currentSound.setVolumeAsync(currentVolume);
+                        }
+                      }
+                    } catch (err) {
+                      console.warn("⚠️ Fade-out error (interval):", err.message);
+                      clearInterval(fadeOutInterval);
+                    }
+                  }, 150);
+                } catch (error) {
+                  console.warn("⚠️ Fade-out setup error:", error.message);
+                }
+              }
+            })();
+          };
+        }, [currentSound])
+      );
+      
+      
 
     // Fetch user's songs to see if user has posted today already
     const fetchPersonalSongs = async (uid) => {
@@ -279,6 +326,63 @@ const FeedScreen = () => {
         }
     };
 
+      
+ // calls the spofity preview api deployed on render 
+    const getPreviewUrl = async (songName) => {
+        try {
+          const response = await fetch(`https://spotify-preview-api.onrender.com/preview?song=${encodeURIComponent(songName)}`);
+          const data = await response.json();
+      
+          if (data.previewUrl) {
+            return data.previewUrl;
+          } else {
+            console.warn("No preview URL found");
+            return null;
+          }
+        } catch (error) {
+          console.error("Error fetching preview URL:", error);
+          return null;
+        }
+      };
+      
+    const playPreview = async (songName) => {
+        const previewUrl = await getPreviewUrl(songName);
+      
+        if (!previewUrl) {
+          console.warn("❌ No preview URL found for this song.");
+          return;
+        }
+      
+        try {
+          // Stop the previous sound if playing
+          if (currentSound) {
+            await currentSound.stopAsync();
+            await currentSound.unloadAsync();
+            setCurrentSound(null);
+          }
+      
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: previewUrl },
+            { shouldPlay: true, volume: 0.3 } // Start at volume 0
+          );
+          setCurrentSound(sound);
+
+          // 🔊 Fade in to full volume over 1.5 seconds
+            let currentVolume = 0.0;
+            const interval = setInterval(async () => {
+            currentVolume += 0.1;
+            if (currentVolume >= 1.0) {
+                clearInterval(interval);
+                await sound.setVolumeAsync(1.0);
+            } else {
+                await sound.setVolumeAsync(currentVolume);
+            }
+            }, 150); // every 150ms
+        } catch (error) {
+          console.error("Error playing preview:", error);
+        }
+      };
+      
     const fetchSongDetails = async (songId) => {
         if (!accessToken) return null;
         try {
@@ -409,6 +513,16 @@ const FeedScreen = () => {
       };
 
     return (
+    <TouchableWithoutFeedback
+        onPress={async () => {
+          Keyboard.dismiss();
+          if (currentSound) {
+            await currentSound.stopAsync();
+            await currentSound.unloadAsync();
+            setCurrentSound(null);
+          }
+        }}
+      >   
         <View style={styles.container}>
             <Text style={styles.ekkoText}>Ekko</Text>
 {/* ----------------------------------TOGGLE----------------------------------------- */}
@@ -439,6 +553,7 @@ const FeedScreen = () => {
                     <Text style={{ color: '#fff', fontWeight: 'bold' }}>All Posts</Text>
                 </TouchableOpacity>
             </View>
+            
             <FlatList
                 data={posts}
                 keyExtractor={(item) => item.id}
@@ -474,6 +589,9 @@ const FeedScreen = () => {
                 }
                 renderItem={({ item, index }) => {
                     const profilePic = item.profilePic ? { uri: item.profilePic } : defaultProfilePics[index % defaultProfilePics.length];
+                    
+                    console.log("🎧 Preview URL:", item.songDetails?.preview_url);
+
                     return (
                         <LinearGradient
                             colors={['#3A0398', '#150F29']}
@@ -492,25 +610,37 @@ const FeedScreen = () => {
                                 <Text style={styles.postUsername}>@{item.username}</Text>
                                 </TouchableOpacity>
                             </View>
-
+                           
                             {item.songDetails ? (
                                 <>
                                     <Image source={{ uri: item.songDetails.album.images[0].url }} style={styles.image} />
                                     <Text style={styles.postSongName}>{item.songDetails.name}</Text>
                                     <Text style={styles.postDetails}>Song • {item.songDetails.artists.map(a => a.name).join(", ")}</Text>
+
+                                    <TouchableOpacity
+                                    onPress={() => {
+                                        const songQuery = `${item.songDetails.name} ${item.songDetails.artists[0].name}`;
+                                        playPreview(songQuery);
+                                    }}
+                                    style={{ marginTop: 8 }}
+                                    >
+                                    <Text style={{ color: '#A338F4', fontWeight: 'bold' }}>▶ Preview</Text>
+                                    </TouchableOpacity>
                                 </>
+
                             ) : (
                                 <Text style={styles.loadingText}>Loading song details...</Text>
                             )}
-
-                            <Text style={styles.captionText}>"{item.caption}"</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-                                {/* Like toggle */}
+                            <Text style={styles.captionText}>"{item.caption}"</Text>
+
+                                                                {/* Like toggle */}
                                 <TouchableOpacity onPress={() => handleLikePost(item.id)}>
                                     <Text style={{ color: likedPosts.has(item.id) ? '#A338F4' : '#ccc', fontWeight: 'bold' }}>
-                                    {likedPosts.has(item.id) ? "♥ Liked" : "♡ Like"}
+                                    {likedPosts.has(item.id) ? "♥ Liked" : "♡ Like "}
                                     </Text>
                                 </TouchableOpacity>
+
 
                                 <Text style={{ color: '#aaa', marginHorizontal: 6 }}>·</Text>
 
@@ -545,6 +675,17 @@ const FeedScreen = () => {
                                     {item.commentCount} Comment{item.likeCount !== 1 ? 's' : ''}
                                     </Text>
                                 </TouchableOpacity>
+
+{/*                         
+                                {item.songDetails?.preview_url && (
+                                <TouchableOpacity onPress={() => playPreview(item.songDetails.preview_url)}>
+                                    <Text style={{ color: '#A338F4', fontWeight: 'bold', marginLeft: 10 }}>
+                                        ▶ Preview
+                                    </Text>
+                                </TouchableOpacity>
+                                )} */}
+
+
                              </View>
                             </LinearGradient>
 
@@ -629,6 +770,7 @@ const FeedScreen = () => {
             </View>
         </Modal>
         </View>
+    </TouchableWithoutFeedback>
     );
 };
 
