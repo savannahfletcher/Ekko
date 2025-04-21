@@ -62,3 +62,4 @@ yarn-error.*
 
 # spotify API
 tokens.json
+serviceAccountKey.json
