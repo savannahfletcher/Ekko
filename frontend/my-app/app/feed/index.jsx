@@ -256,11 +256,11 @@ const FeedScreen = () => {
           
             // const tempLikedPosts = new Set(); // ✅ declare this here
             const postsWithDetails = await Promise.all(feedData.map(async (post) => {
-                let songDetails = songCache[post.songId];
-                if (!songDetails) {
-                    songDetails = await fetchSongDetails(post.songId);
-                    if (songDetails) songCache[post.songId] = songDetails;
-                }
+                // let songDetails = songCache[post.songId];
+                // if (!songDetails) {
+                //     songDetails = await fetchSongDetails(post.songId);
+                //     if (songDetails) songCache[post.songId] = songDetails;
+                // }
             
                 // 🔹 Get likes
                 const likesSnapshot = await getDocs(collection(db, "feed", post.id, "likes"));
@@ -310,11 +310,16 @@ const FeedScreen = () => {
             
                 return {
                     ...post,
-                    songDetails,
                     profilePic,
                     username: postUsername,
                     likeCount,
                     commentCount,
+                    // Use stored metadata instead of fetched
+                    songDetails: {
+                        name: post.title,
+                        artists: [{ name: post.artist }],
+                        album: { images: [{ url: post.albumCover }] },
+                    },
                 };
             }));
     
@@ -343,7 +348,7 @@ const FeedScreen = () => {
           console.error("Error fetching preview URL:", error);
           return null;
         }
-      };
+    };
       
     const playPreview = async (songName) => {
         const previewUrl = await getPreviewUrl(songName);
@@ -381,20 +386,20 @@ const FeedScreen = () => {
         } catch (error) {
           console.error("Error playing preview:", error);
         }
-      };
-      
-    const fetchSongDetails = async (songId) => {
-        if (!accessToken) return null;
-        try {
-            const response = await axios.get(`https://api.spotify.com/v1/tracks/${songId}`, {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            return response.data;
-        } catch (error) {
-            console.error(`Error fetching song details for ${songId}:`, error.response?.data || error.message);
-            return null;
-        }
     };
+      
+    // const fetchSongDetails = async (songId) => {
+    //     if (!accessToken) return null;
+    //     try {
+    //         const response = await axios.get(`https://api.spotify.com/v1/tracks/${songId}`, {
+    //             headers: { Authorization: `Bearer ${accessToken}` },
+    //         });
+    //         return response.data;
+    //     } catch (error) {
+    //         console.error(`Error fetching song details for ${songId}:`, error.response?.data || error.message);
+    //         return null;
+    //     }
+    // };
 
     const handleLoadMore = () => {
         if (visibleCount < allPosts.length) {
